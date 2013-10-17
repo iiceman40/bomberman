@@ -1,4 +1,7 @@
 $(document).ready(function() {
+	Physijs.scripts.worker = '/js/vendor/physijs_worker.js';
+	Physijs.scripts.ammo = '/js/vendor/ammo.js';
+	
 	var clientClickX, clientClickY;
 	
 	var container;
@@ -15,22 +18,24 @@ $(document).ready(function() {
 	var objects = [];
 	var light;
 	
+	var crateTexture;
+	
 	// NEW
 	var allow_diagonals = true;
 	var board = [];
-	var map = []
+	var map = [];
 	var fields = new Array();
 	
 	//Set the number of rows and columns for the board
-	var rows = 40;
-	var columns = 40;
+	var rows = 20;
+	var columns = 20;
 	
 	var litCube; 
 
 	createMap();
 	
 	init();
-	animate(new Date().getTime());
+	animate();
 	
 
 	function init() {
@@ -38,7 +43,8 @@ $(document).ready(function() {
 		container = document.createElement( 'div' );
 		document.body.appendChild( container );
 
-		scene = new THREE.Scene();
+		scene = new Physijs.Scene;
+		scene.setGravity(new THREE.Vector3( 0, -30, 0 ));
 		
 		// Camera
 		camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 10000 );
@@ -52,56 +58,80 @@ $(document).ready(function() {
 		crate2Texture.wrapS = crate2Texture.wrapT = THREE.RepeatWrapping;
 		crate2Texture.repeat.set( rows, columns );
 		crate2Texture.anisotropy = maxAnisotropy;
-		var materialFloor = new THREE.MeshLambertMaterial({
-			map: crate2Texture
-		});
-		var crateTexture = new THREE.ImageUtils.loadTexture("textures/crate.jpg");
+		var materialFloor = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: crate2Texture }),
+			.9, // high friction
+			.0 // low restitution
+		);
+		
+		crateTexture = new THREE.ImageUtils.loadTexture("textures/crate.jpg");
 		crateTexture.anisotropy = maxAnisotropy;
-		var materialWall = new THREE.MeshLambertMaterial({
-			map: crateTexture
-		});
+		var materialWall = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: crateTexture }),
+			.9, // high friction
+			.0 // low restitution
+		);
 		
 		// build plane
-		plane = new THREE.Mesh( new THREE.PlaneGeometry( rows*50, columns*50, 10, 10 ), materialFloor );
-		plane.rotation.x = - Math.PI / 2;
-		plane.castShadow = true;
-		plane.receiveShadow = true;
+		plane = new Physijs.BoxMesh(
+			new THREE.CubeGeometry(rows*50, 1, columns*50),
+			materialFloor,
+			0 // mass
+		);
+		plane.position.y = -1;
 		scene.add( plane );
+		
+		plane2 = new THREE.Mesh( new THREE.PlaneGeometry( rows*50, columns*50, 10, 10 ), materialFloor );
+		plane2.rotation.x = - Math.PI / 2;
+		plane2.castShadow = true;
+		plane2.receiveShadow = true;
+		scene.add( plane2 );
 		
 		for(i=0;i<board.length;i++){
 			for(j=0;j<board[i].length;j++){
 				if( board[i][j]==1){
 					fieldHeight = 50;
 					yPosition = fieldHeight/2;
-					material = materialWall;
 					
-					var field = new THREE.Mesh(	new THREE.CubeGeometry(50,fieldHeight,50), material	);
-					field.position.x = (i+1)*50 - board.length*50/2 -25;
-					field.position.z = (j+1)*50 - board[i].length*50/2 -25;
-					field.position.y = yPosition;
-					field.castShadow = true;
-					field.receiveShadow = true;
-					scene.add( field );
-					objects.push( field );
+					x = (i+1)*50 - board.length*50/2 -25;
+					z = (j+1)*50 - board[i].length*50/2 -25;
+					y = yPosition;
+					objects.push( spawnBox(crateTexture, x, y, z) );
 				} 
-				
 			}
 		}
 		
+		
+		
 		// PLAYER
-		var materialWhite = new THREE.MeshPhongMaterial({
-			color: 0xeeeeee
-		});
+		var materialWhite = Physijs.createMaterial(
+			new THREE.MeshPhongMaterial({ color: 0xeeeeee }),
+			.9, // high friction
+			.0 // low restitution
+		);
 		
 		radius = 25;
 		segments = 36;
 		rings = 36;
-		playerObj = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialWhite );
-		playerObj.position.x = 25
-		playerObj.position.y = 25
-		playerObj.position.z = 25
+		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialWhite, 99999999999999999999999 );
+		playerObj.position.x = 25;
+		playerObj.position.y = 25;
+		playerObj.position.z = 25;
+		
+		
+		// Enable CCD if the object moves more than 1 meter in one simulation frame
+		//playerObj.setCcdMotionThreshold(1);
+		
+		// Set the radius of the embedded sphere such that it is smaller than the object
+		//playerObj.setCcdSweptSphereRadius(0.2);
+		
 		// add the sphere to the scene
 		scene.add(playerObj);
+		
+		//playerObj.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
+		    // `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation` and at normal `contact_normal`
+		  //  console.log('hit');
+		//});
 		
 		litCube = new THREE.Mesh(
 			new THREE.CubeGeometry(50, 50, 50),
@@ -127,7 +157,7 @@ $(document).ready(function() {
 		//scene.add(ambientLight);
 		
 		//directions light
-		light =  new THREE.SpotLight( 0xffeeee, 1 );
+		light =  new THREE.SpotLight( 0xffeeee, 1.5 );
 		light.shadowDarkness = 0.4;
 		light.shadowCameraVisible = true;
 		
@@ -229,7 +259,7 @@ $(document).ready(function() {
 	}
 	
 	function render() {
-		var seconds = Date.now()/1000
+		var seconds = Date.now()/1000;
 		var piPerSeconds = seconds * Math.PI;
 		
 		light.position.x = Math.cos(piPerSeconds*0.05)*1000;
@@ -245,7 +275,7 @@ $(document).ready(function() {
 	function update() {
 		keyboard.update();
 	
-		var moveDistance = 50 * clock.getDelta(); 
+		var moveDistance = 100 * clock.getDelta(); 
 	
 		if ( keyboard.pressed("A") )
 			playerObj.translateX( -moveDistance );
@@ -259,12 +289,18 @@ $(document).ready(function() {
 		if ( keyboard.pressed("S") )
 			playerObj.translateZ(  moveDistance );
 			
-		if ( keyboard.down("R") )
+		if ( keyboard.down("R") ){
 			playerObj.material.color = new THREE.Color(0xff0000);
+			spawnBox(crateTexture, 25, 100, 25);
+		}
 		if ( keyboard.up("R") )
 			playerObj.material.color = new THREE.Color(0x0000ff);
 		
-		
+		playerObj.__dirtyPosition = true;
+		playerObj.__dirtyRotation = true;
+		playerObj.setAngularFactor({ x: 0, y: 0, z: 0 });
+		playerObj.setLinearVelocity({ x: 0, y: 0, z: 0 });
+		scene.simulate();
 		
 		// controls
 		controls.update();
@@ -299,4 +335,37 @@ $(document).ready(function() {
 		}
 		console.log(map);
 	}
+	
+	function spawnBox(texture, x, y, z) {
+			var box, material;
+			
+			material = Physijs.createMaterial(
+				new THREE.MeshLambertMaterial({ map: texture }),
+				.6, // medium friction
+				.0 // low restitution
+			);
+			//material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+			//material.map.repeat.set( .5, .5 );
+			
+			//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+			
+			box = new Physijs.BoxMesh(
+				new THREE.CubeGeometry( 50, 50, 50 ),
+				material,
+				0 // mass: 0 = infinite
+			);
+			box.collisions = 0;
+			
+			box.position.set(
+				x, // x
+				y, // y
+				z // z
+			);
+			
+			box.castShadow = true;
+			//box.addEventListener( 'collision', handleCollision );
+			//box.addEventListener( 'ready', spawnBox );
+			scene.add( box );
+			return box;
+		}
 });
