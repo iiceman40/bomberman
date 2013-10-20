@@ -113,17 +113,18 @@ $(document).ready(function() {
 		radius = 25;
 		segments = 36;
 		rings = 36;
-		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialWhite, 99999999999999999999999 );
+		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialWhite, 9999 );
 		playerObj.position.x = 25;
 		playerObj.position.y = 25;
 		playerObj.position.z = 25;
+		playerObj.castShadow = true;
 		
 		
 		// Enable CCD if the object moves more than 1 meter in one simulation frame
-		//playerObj.setCcdMotionThreshold(1);
+		playerObj.setCcdMotionThreshold(100);
 		
 		// Set the radius of the embedded sphere such that it is smaller than the object
-		//playerObj.setCcdSweptSphereRadius(0.2);
+		playerObj.setCcdSweptSphereRadius(1.2);
 		
 		// add the sphere to the scene
 		scene.add(playerObj);
@@ -157,7 +158,7 @@ $(document).ready(function() {
 		//scene.add(ambientLight);
 		
 		//directions light
-		light =  new THREE.SpotLight( 0xffeeee, 1.5 );
+		light =  new THREE.SpotLight( 0xffeeee, 1 );
 		light.shadowDarkness = 0.4;
 		light.shadowCameraVisible = true;
 		
@@ -291,7 +292,8 @@ $(document).ready(function() {
 			
 		if ( keyboard.down("R") ){
 			playerObj.material.color = new THREE.Color(0xff0000);
-			spawnBox(crateTexture, 25, 100, 25);
+			//spawnBox(crateTexture, 25, 100, 25);
+			spawnBomb();
 		}
 		if ( keyboard.up("R") )
 			playerObj.material.color = new THREE.Color(0x0000ff);
@@ -300,6 +302,7 @@ $(document).ready(function() {
 		playerObj.__dirtyRotation = true;
 		playerObj.setAngularFactor({ x: 0, y: 0, z: 0 });
 		playerObj.setLinearVelocity({ x: 0, y: 0, z: 0 });
+		playerObj.position.y = 25;
 		scene.simulate();
 		
 		// controls
@@ -309,6 +312,24 @@ $(document).ready(function() {
 	/*
 	 * FUNCTIONS
 	 */
+	function spawnBomb(){
+		var materialBlack = Physijs.createMaterial(
+			new THREE.MeshPhongMaterial({ color: 0x090909 }),
+			.9, // high friction
+			.0 // low restitution
+		);
+		
+		radius = 23;
+		segments = 36;
+		rings = 36;
+		bomb = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialBlack, 9999999999 );
+		bomb.position.x = playerObj.position.x;
+		bomb.position.y = playerObj.position.y;
+		bomb.position.z = playerObj.position.z;
+		bomb.castShadow = true;
+		scene.add(bomb);
+	}
+	
 	////////////////////////////////////////////
 	// Create and Draw Map 
 	////////////////////////////////////////////
@@ -352,7 +373,7 @@ $(document).ready(function() {
 			box = new Physijs.BoxMesh(
 				new THREE.CubeGeometry( 50, 50, 50 ),
 				material,
-				0 // mass: 0 = infinite
+				999999 // mass: 0 = infinite
 			);
 			box.collisions = 0;
 			
