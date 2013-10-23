@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>keys.move|mouse.look</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <script src="js/three.min.js"></script>
+    <script src="js/tween.min.js"></script>
+    <script src="js/cannon.min.js"></script>
+    <script src='js/Detector.js'></script>
+    <script src='js/libs/stats.min.js'></script>
+    <script src='js/MD2CharacterComplex.js'></script>
+    <script src="js/myOrbitControls.js"></script>
+  </head>
+
+  <body>
+
+    <!-- Thanks @aral for ‘Fork me on GitHub’ design..
+         http://aralbalkan.com/scribbles/fork-me-on-github-retina-ribbons/ -->
+    <a href="https://github.com/joates/ogro-threejs-cannonjs">
+    <img style="position: absolute; top: 0; right: 0; border: 0; width: 149px; height: 149px;" src="http://aral.github.com/fork-me-on-github-retina-ribbons/right-dusk-blue@2x.png" alt="Fork me on GitHub" /></a>
+
+    <script>
+
+      /** WebGL context is required **/
+      if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+      /** Initialise globals **/
+      var container, scene, renderer;
+
+      var camera,
+          cameraTarget = new THREE.Vector3(),
+          cameraControls,
+          cameraLookAround = true,
+          cameraLimit = 2000;
+
+      var WIDTH  = window.innerWidth,
+          HEIGHT = window.innerHeight;
+
+      var player,
+          playerMesh,
+          playerOrigin = new THREE.Vector3(),
+          playerControls = {
+            moveLeft:  false, moveForward:  false, 
+            moveRight: false, moveBackward: false },
+          debugPlayerMesh,
+          numPlayerSkins,
+          playerSkin = 11,
+          playerLimit = 4000;
+
+      var world = new CANNON.World(),
+          blocks = [],
+          blockMeshes = [],
+          maxBlocks = 24;
+
+      var clock = new THREE.Clock(),
+          stepFrequency = 120;
+
+      /** Materials and textures **/
+
+      // Create physics material.
+      var physicsMaterial = new CANNON.Material();
+
+      // Define physics material contacts.
+      var contactMaterial = new CANNON.ContactMaterial(
+        physicsMaterial, physicsMaterial,  1.0, 0.1 );
+
+      // Add the contact materials to the world.
+      world.addContactMaterial( contactMaterial );
+
+      // Floor plane texture.
+      var floorTexture = THREE.ImageUtils.loadTexture("images/water.jpg");
+      floorTexture.repeat.set(0.5, 0.8);
+      floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+      var floorMaterial  = new THREE.MeshPhongMaterial({
+        ambient:   0x444444,
+        color:     0x66aa66,
+        shininess: 150, 
+        specular:  0x888888,
+        shading:   THREE.SmoothShading,
+        map:       floorTexture
+      });
+
+      // Stone block texture.
+      var blockMaterial = floorMaterial.clone();
+      blockMaterial.setValues({ color: 0xaaaaaa });
+
+
+      // Start it up!
+      init();
+      animate();
+
+
+      /** Functions **/
+
+      function init() {
+
+        container = document.createElement('div');
+        document.body.appendChild(container);
+
+        // CAMERA
+        camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 10000);
+
+        // set initial camera position.
+        camera.position.copy( new THREE.Vector3( -cameraLimit, cameraLimit/2, cameraLimit ) );
+
+        // CONTROLS
+        cameraControls = new THREE.OrbitControls( camera );
+        cameraControls.userPan = false;
+
+        // SCENE
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0xaabfee, 3000, 8000);
+        scene.add( camera );
+
+        // RENDERER
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(WIDTH, HEIGHT);
+        renderer.setClearColor(scene.fog.color, 1);
+        renderer.gammaInput = true;
+        renderer.gammaOutput = true;
+        renderer.shadowMapEnabled = true;
+        renderer.shadowMapCascade = true;
+        renderer.shadowMapType = THREE.PCFSoftShadowMap;
+        //renderer.shadowMapDebug = true;
+
+        container.appendChild(renderer.domElement);
+
+        // LIGHTS
+        scene.add(new THREE.AmbientLight(0xff9000));
+        var light = new THREE.DirectionalLight(0xffffff, 1.5);
+        light.position.set(200, 450, 500);
+        light.castShadow = true;
+        light.shadowMapWidth = 1024;
+        light.shadowMapHeight = 1024;
+        light.shadowMapDarkness = 0.95;
+        //light.shadowCameraVisible = true;
+        light.shadowCascade = true;
+        light.shadowCascadeCount = 3;
+        light.shadowCascadeNearZ = [ -1.000, 0.995, 0.998 ];
+        light.shadowCascadeFarZ  = [  0.995, 0.998, 1.000 ];
+        light.shadowCascadeWidth = [ 1024, 1024, 1024 ];
+        light.shadowCascadeHeight = [ 1024, 1024, 1024 ];
+        scene.add(light);
+
+        // CONFIGURE PHYSICS WORLD
+        world.quatNormalizeSkip = 0;
+        world.quatNormalizeFast = false;
+        var solver = new CANNON.GSSolver();
+        world.defaultContactMaterial.contactEquationStiffness = 1e9;
+        world.defaultContactMaterial.contactEquationRegularizationTime = 3;
+        solver.iterations = 20;
+        solver.tolerance = 0;
+        var split = true;
+        if (split)
+          world.solver = new CANNON.SplitSolver(solver);
+        else
+          world.solver = solver;
+        world.gravity.set( 0, -2000, 0 );
+        world.broadphase = new CANNON.NaiveBroadphase();
+
+        // CREATE A PHYSICS GROUND PLANE
+        var groundShape = new CANNON.Plane();
+        var groundBody = new CANNON.RigidBody( 0, groundShape, physicsMaterial );
+        groundBody.quaternion.setFromAxisAngle( new CANNON.Vec3( 1, 0, 0 ), - Math.PI / 2 );
+        world.add( groundBody );
+
+        // PLAYERS PHYSICS
+        var size = 80;
+        var shape = new CANNON.Sphere( size );
+        player = new CANNON.RigidBody( 25, shape, physicsMaterial );
+        player.position.set( 0, size, 0 );
+        //player.linearDamping = 0.9;
+        world.add( player );
+
+
+        /*
+        // DEBUG: wireframe sphere
+        var geometry = new THREE.SphereGeometry( size );
+        var material = new THREE.MeshBasicMaterial({ wireframe: true, color: 0x444444 });
+        debugPlayerMesh = new THREE.Mesh( geometry, material );
+        debugPlayerMesh.position.set( 0, size, 0 );
+        debugPlayerMesh.useQuaternion = true;
+        scene.add( debugPlayerMesh );
+        */
+
+
+        // BIG BLOCK
+        addBlock( 10000, new THREE.Vector3(100, 100, 100), physicsMaterial, blockMaterial, new THREE.Vector3(200, 100, -200), false );
+
+        // FLOOR PLANE
+        var geometry = new THREE.PlaneGeometry( 16000, 16000 );
+        var floor    = new THREE.Mesh(geometry, floorMaterial);
+        floor.flipSided     = false;
+        floor.castShadow    = false;
+        floor.receiveShadow = true;
+        floor.rotation.x   = - Math.PI / 2;
+        scene.add(floor);
+
+        /*
+        // TEST FLOOR GRID
+        var planeW = 100; // grid size
+        var planeH = 100; //
+        var numW = 8;     // grid quantity
+        var numH = 8;     //
+        var plane = new THREE.Mesh( new THREE.PlaneGeometry( planeW*numW, planeH*numH, numW, numH ), new THREE.MeshBasicMaterial( { color: 0x442244, wireframe: true, wireframeLinewidth: 2.5 } ) );
+        plane.rotation.x   = - Math.PI / 2;
+        plane.position.y  += 0.1;
+        scene.add(plane);
+        */
+
+        // STATS
+        stats = new Stats();
+        container.appendChild(stats.domElement);
+
+        // EVENTS
+        window.addEventListener('resize', onWindowResize, false);
+        document.addEventListener('keydown', onKeyDown, false);
+        document.addEventListener('keyup', onKeyUp, false);
+
+        // CHARACTER
+        var configOgro = {
+          baseUrl: "models/animated/ogro/",
+          body: "ogro-light.js",
+          skins: [ "grok.jpg", "ogrobase.png", "arboshak.png",
+            "ctf_r.png", "ctf_b.png", "darkam.png", "freedom.png",
+            "gib.png", "gordogh.png", "igdosh.png", "khorne.png",
+            "nabogro.png", "sharokh.png" ],
+          weapons:  [ [ "weapon-light.js", "weapon.jpg" ] ],
+          animations: {
+            move: "run",
+            idle: "stand",
+            jump: "jump",
+            attack: "attack",
+            crouchMove: "cwalk",
+            crouchIdle: "cstand",
+            crouchAttach: "crattack"
+          },
+          walkSpeed: 350,
+          crouchSpeed: 175
+        };
+
+        numPlayerSkins = configOgro.skins.length;
+
+        playerMesh = new THREE.MD2CharacterComplex();
+        playerMesh.scale = 3;
+        playerMesh.controls = playerControls;
+        playerOrigin.copy( playerMesh.root.position );
+        cameraTarget.copy( playerOrigin ).setY( 150 );
+
+        var baseCharacter = new THREE.MD2CharacterComplex();
+        baseCharacter.scale = 3;
+
+        baseCharacter.onLoadComplete = function () {
+          var cloneCharacter = playerMesh;
+          cloneCharacter.shareParts(baseCharacter);
+          cloneCharacter.enableShadows(true);
+          //cloneCharacter.setWeapon(0);
+          cloneCharacter.setSkin( playerSkin );
+
+          scene.add(cloneCharacter.root);
+
+          var gyro = new THREE.Gyroscope();
+          gyro.add(camera);
+
+          playerMesh.root.add(gyro);
+
+          // set initial player position.
+          playerMesh.root.position.x = -250;
+          playerMesh.root.position.z = -250;
+        };
+
+        baseCharacter.loadParts(configOgro);
+      }
+
+
+      function animate() {
+
+        requestAnimationFrame(animate);
+        update();
+        render();
+      }
+
+
+      function update() {
+
+        var delta = clock.getDelta();
+        playerMesh.update( delta );
+
+        TWEEN.update();
+        cameraControls.update();
+        stats.update();
+
+        // Players protective barrier
+        if (player instanceof CANNON.RigidBody) {
+
+          // TODO:
+          // This is currently reset each frame, but it
+          // should influence the player mesh location !!
+          //
+          // (Stabilize the physics bounding sphere)
+          player.velocity.copy( new CANNON.Vec3() );
+          player.quaternion.set( 1, 0, 0, 0 );
+          player.inertia.set( 0, 0, 0 );
+          player.invInertia.set( 0, 0, 0 );
+
+          // Set sphere to player mesh position.
+          var p = playerMesh.root.position;
+          player.position.set( p.x, p.y, p.z );
+
+          // debug wireframe sphere location.
+          // debugPlayerMesh.position.copy( player.position );
+          // debugPlayerMesh.quaternion.copy( player.quaternion );
+        }
+
+        var j = blocks.length;
+        for (var i=0; i<j; i++) {
+          var body = blocks[i];
+          var mesh = blockMeshes[i];
+          mesh.position.copy( body.position );
+          mesh.quaternion.copy( body.quaternion );
+        }
+
+        if (j<maxBlocks && blocks[j-1].position.y < 700) {
+
+          // "stone blocks keep falling on my head,
+          // they keep falling" ;-)
+
+          if (Math.random() - 0.5 > 0) {
+
+            /** regular **/
+            addBlock( 500, new THREE.Vector3(60, 60, 60) );
+
+          } else {
+
+            /** smaller **/
+            addBlock( 500, new THREE.Vector3(44, 44, 44));
+          }
+        }
+
+        // Camera TWEEN.
+        if (!cameraLookAround) {
+
+          // Calculate camera offset.
+          var matrix = new THREE.Matrix4().copy( playerMesh.root.matrix );
+          matrix.setPosition( playerOrigin )
+          var offset = new THREE.Vector3( 0, 227, -800 );
+          var cameraOffset = offset.applyMatrix4( matrix );
+
+          // Create a smooth camera transition.
+          new TWEEN.Tween( camera.position ).to( {
+            x: cameraOffset.x,
+            y: cameraOffset.y,
+            z: cameraOffset.z }, 200 )
+          .interpolation( TWEEN.Interpolation.Bezier )
+          .easing( TWEEN.Easing.Sinusoidal.InOut ).start();
+
+          // Set camera rotation.
+          camera.lookAt( cameraTarget );
+        }
+
+
+        // player movement restrictions.
+        playerMesh.root.position.y = Math.max(playerMesh.root.position.y, playerOrigin.y);
+        if (playerMesh.root.position.length() > playerLimit) {
+          playerMesh.root.position.setLength( playerLimit );
+        }
+
+        // Step world
+        for(var i=0; i<Math.ceil(stepFrequency/60); i++){
+            world.step(1/stepFrequency);
+        }
+      }
+
+
+      function render() {
+
+        renderer.render(scene, camera);
+      }
+
+
+      // EVENT HANDLERS
+      function onWindowResize(event) {
+
+        WIDTH  = window.innerWidth;
+        HEIGHT = window.innerHeight;
+
+        renderer.setSize(WIDTH, HEIGHT);
+
+        camera.aspect = WIDTH / HEIGHT;
+        camera.updateProjectionMatrix();
+      }
+
+
+      function onKeyDown (event) {
+
+        switch(event.keyCode) {
+
+          case 38: /*up*/
+          case 87: /*W*/
+                   playerControls.moveForward = true; break;
+
+          case 40: /*down*/
+          case 83: /*S*/
+                   playerControls.moveBackward = true; break;
+
+          case 37: /*left*/
+          case 65: /*A*/
+                   playerControls.moveLeft = true; break;
+
+          case 39: /*right*/
+          case 68: /*D*/
+                   playerControls.moveRight = true; break;
+
+          case 109: /*subtract*/
+          case 189: /*dash*/
+                    playerSkin--;
+                    if(playerSkin<0)playerSkin=numPlayerSkins-1;
+                    playerSkin %= numPlayerSkins;
+                    playerMesh.setSkin( playerSkin ); break;
+
+          case 107: /*add*/
+          case 187: /*plus*/
+                    playerSkin++;
+                    playerSkin %= numPlayerSkins;
+                    playerMesh.setSkin( playerSkin ); break;
+        }
+
+        var pc = playerControls;
+        if (pc.moveForward || pc.moveLeft || pc.moveRight || pc.moveBackward) {
+          cameraLookAround = false;
+        }
+      };
+
+
+      function onKeyUp (event) {
+
+        switch(event.keyCode) {
+
+          case 38: /*up*/
+          case 87: /*W*/
+                   playerControls.moveForward = false; break;
+
+          case 40: /*down*/
+          case 83: /*S*/
+                   playerControls.moveBackward = false; break;
+
+          case 37: /*left*/
+          case 65: /*A*/
+                   playerControls.moveLeft = false; break;
+
+          case 39: /*right*/
+          case 68: /*D*/
+                   playerControls.moveRight = false; break;
+        }
+      };
+
+
+      /** Custom functions **/
+
+      function addBlock( mass, vDim, physMat, meshMat, vPos, upright ) {
+
+        var m = mass || 200;
+        var s = vDim instanceof THREE.Vector3 ? vDim : new THREE.Vector3( 50, 50, 50 );
+        var pM = physMat || physicsMaterial;
+        var mM = meshMat || blockMaterial;
+
+        var p;
+        if (vPos instanceof THREE.Vector3) {
+          p = vPos;
+        } else {
+          // random drop (on 8x8 grid).
+          var rX = Math.floor(Math.random() * 8 - 4) * 100 + (vDim.x + (50-vDim.x));
+          var rZ = Math.floor(Math.random() * 8 - 4) * 100 + (vDim.z + (50-vDim.z));
+          p = new THREE.Vector3( rX, 1000, rZ );
+        }
+
+        var u = typeof upright !== 'undefined' ? true : false;
+
+        var hE = new CANNON.Vec3( s.x, s.y, s.z );
+        var blockShape = new CANNON.Box( hE );
+        var blockGeometry = new THREE.CubeGeometry( hE.x*2, hE.y*2, hE.z*2 );
+        var blockBody = new CANNON.RigidBody( m, blockShape, pM );
+
+        if (!u) {
+          // add a random quaternion rotation.
+          var v1 = new CANNON.Vec3( 1, 1, 1 );
+          var q1 = new CANNON.Quaternion();
+          q1.setFromAxisAngle(v1,Math.PI * Math.random());
+          blockBody.quaternion.set(q1.x,q1.y,q1.z,q1.w);
+        }
+
+        var blockMesh = new THREE.Mesh( blockGeometry, mM );
+        world.add( blockBody );
+        scene.add( blockMesh );
+        blockBody.position.set( p.x, p.y, p.z );
+        blockMesh.position.set( p.x, p.y, p.z );
+        blockMesh.castShadow = true;
+        blockMesh.receiveShadow = true;
+        blockMesh.useQuaternion = true;
+        blocks.push( blockBody );
+        blockMeshes.push( blockMesh );
+      }
+
+    </script>
+
+  </body>
+</html>
