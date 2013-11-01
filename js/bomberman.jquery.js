@@ -8,7 +8,8 @@ $(document).ready(function() {
 
 	var camera, scene, renderer, objects;
 	var keyboard = new KeyboardState();
-	var playerObj;
+	var playerObj1;
+	var playerObj2;
 
 	var clock = new THREE.Clock();
 	var maxAnisotropy = 16;
@@ -17,6 +18,7 @@ $(document).ready(function() {
 	
 	var objects = [];
 	var bombs = [];
+	var powerUps = [];
 	var light;
 	
 	var crateTexture;
@@ -35,23 +37,23 @@ $(document).ready(function() {
 	
 	var particleSystem;
 	// create the particle variables
+	
+	
 	var particleCount = 1800;
 	var particles = new THREE.Geometry();
 	var pMaterial = new THREE.ParticleBasicMaterial({
-		color: 0xFFFFFF,
+		color: Math.random() * 0x808008 + 0x808080,
 		opacity: 0.3,
-		size: 20,
-		map: THREE.ImageUtils.loadTexture("images/particle.png"),blending: THREE.AdditiveBlending, transparent: true
+		size: 5,
+		//map: THREE.ImageUtils.loadTexture("images/particle.png"),
+		blending: THREE.AdditiveBlending, 
+		transparent: true
 	});
 
 	createMap();
 	
 	init();
 	animate();
-	
-	var player1 = new Object();
-	player1.bombrange = 110;
-	player1.bomblimit = 1;
 	
 
 	function init() {
@@ -67,7 +69,7 @@ $(document).ready(function() {
 		camera.position.set( 0, 730, 50 );
 		camera.lookAt(scene.position);
 
-		controls = new THREE.OrbitControls( camera );
+		//controls = new THREE.OrbitControls( camera );
 		
 		// Materials
 		var crate2Texture = new THREE.ImageUtils.loadTexture("textures/crate2.jpg");
@@ -119,52 +121,35 @@ $(document).ready(function() {
 		
 		
 		
-		// PLAYER
+		// PLAYERS
 		var materialWhite = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0xeeeeee }),
 			.9, // high friction
 			.0 // low restitution
 		);
+		var materialBlue = Physijs.createMaterial(
+			new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 100.0 }),
+			.9, // high friction
+			.0 // low restitution
+		);
+		var materialRed = Physijs.createMaterial(
+			new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100.0 }),
+			.9, // high friction
+			.0 // low restitution
+		);
 		
-		radius = 25;
-		segments = 36;
-		rings = 36;
-		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialWhite, 9999 );
-		playerObj.position.x = 25;
-		playerObj.position.y = 25;
-		playerObj.position.z = 25;
-		playerObj.castShadow = true;
-		objects.push(playerObj);
+		playerObj1 = spawnPlayer(25,25,25, materialBlue);
+		objects.push(playerObj1);
+		scene.add(playerObj1);
 		
-		
-		// Enable CCD if the object moves more than 1 meter in one simulation frame
-		playerObj.setCcdMotionThreshold(100);
-		
-		// Set the radius of the embedded sphere such that it is smaller than the object
-		playerObj.setCcdSweptSphereRadius(1.2);
-		
-		// add the sphere to the scene
-		scene.add(playerObj);
-		
-		//playerObj.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
+		//playerObj1.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
 		    // `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation` and at normal `contact_normal`
 		  //  console.log('hit');
 		//});
 		
-		litCube = new THREE.Mesh(
-			new THREE.CubeGeometry(50, 50, 50),
-			new THREE.MeshLambertMaterial({
-				transparent: true,
-				opacity: 0.5,
-				side:THREE.DoubleSide,
-				color: 0xFFFFFF
-			})
-		);
-		litCube.position.y = 800;
-		litCube.name = "litCube";
-		scene.add(litCube);
-		objects.push( litCube );
-		
+		playerObj2 = spawnPlayer(rows*25 - 25, 25, columns*25 - 25, materialRed);
+		objects.push(playerObj2);
+		scene.add(playerObj2);
 		
 		
 		//////////////////////////////////////
@@ -241,7 +226,7 @@ $(document).ready(function() {
 		particleSystem.sortParticles = true;
 		
 		// add it to the scene
-		scene.add(particleSystem);
+		//scene.add(particleSystem);
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	}
 
@@ -340,8 +325,6 @@ $(document).ready(function() {
 		light.position.y = 800;
 		light.position.z = Math.sin(piPerSeconds*0.05)*1000;
 		
-		litCube.position = light.position;
-		
 		renderer.render(scene, camera);
 	};
 	
@@ -349,37 +332,97 @@ $(document).ready(function() {
 	function update() {
 		keyboard.update();
 	
-		var moveDistance = 100 * clock.getDelta(); 
+		var delta = clock.getDelta();
+		
+		// Player 1
+		var moveDistance1 = playerObj1.speed * delta;  
 	
 		if ( keyboard.pressed("A") )
-			playerObj.translateX( -moveDistance );
+			playerObj1.translateX( -moveDistance1 );
 			
 		if ( keyboard.pressed("D") )
-			playerObj.translateX(  moveDistance );
+			playerObj1.translateX(  moveDistance1 );
 			
 		if ( keyboard.pressed("W") )
-			playerObj.translateZ( -moveDistance );
+			playerObj1.translateZ( -moveDistance1 );
 			
 		if ( keyboard.pressed("S") )
-			playerObj.translateZ(  moveDistance );
+			playerObj1.translateZ(  moveDistance1 );
+			
+		if ( keyboard.down("shift") ){
+			//playerObj1.material.color = new THREE.Color(0xff0000);
+			//spawnBox(crateTexture, 25, 100, 25);
+			spawnBomb(playerObj1);
+		}
+		
+		// Player 2
+		var moveDistance2 = playerObj2.speed * delta;
+				
+		if ( keyboard.pressed("left") )
+			playerObj2.translateX( -moveDistance2 );
+			
+		if ( keyboard.pressed("right") )
+			playerObj2.translateX(  moveDistance2 );
+			
+		if ( keyboard.pressed("up") )
+			playerObj2.translateZ( -moveDistance2 );
+			
+		if ( keyboard.pressed("down") )
+			playerObj2.translateZ(  moveDistance2 );
 			
 		if ( keyboard.down("space") ){
-			playerObj.material.color = new THREE.Color(0xff0000);
+			//playerObj1.material.color = new THREE.Color(0xff0000);
 			//spawnBox(crateTexture, 25, 100, 25);
-			spawnBomb();
+			spawnBomb(playerObj2);
 		}
-		if ( keyboard.up("R") )
-			playerObj.material.color = new THREE.Color(0x0000ff);
 		
-		playerObj.__dirtyPosition = true;
-		playerObj.__dirtyRotation = true;
-		playerObj.setAngularFactor({ x: 0, y: 0, z: 0 });
-		playerObj.setLinearVelocity({ x: 0, y: 0, z: 0 });
-		playerObj.position.y = 25;
+		
+		
+		
+		
+		if ( keyboard.up("R") )
+			playerObj1.material.color = new THREE.Color(0x0000ff);
+		
+		if (playerObj1.isActive){
+			playerObj1.__dirtyPosition = true;
+			playerObj1.__dirtyRotation = true;
+			playerObj1.setAngularFactor({ x: 0, y: 0, z: 0 });
+			playerObj1.setLinearVelocity({ x: 0, y: 0, z: 0 });
+			playerObj1.position.y = 25;
+		}
+		if (playerObj2.isActive){
+			playerObj2.__dirtyPosition = true;
+			playerObj2.__dirtyRotation = true;
+			playerObj2.setAngularFactor({ x: 0, y: 0, z: 0 });
+			playerObj2.setLinearVelocity({ x: 0, y: 0, z: 0 });
+			playerObj2.position.y = 25;
+		}
+		
+		
+		powerUps = $.grep(powerUps, function(value, index){
+			// PowerUp Player 1
+			p1 = playerObj1.position.x;
+	        p2 = playerObj1.position.y;
+	        p3 = playerObj1.position.z;
+	        q1 = value.position.x;
+	        q2 = value.position.y;
+	        q3 = value.position.z;
+	        
+	        distance = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
+			if( distance <= 30 ){
+				if( value.type == "range" )
+				playerObj1.bombrange = playerObj1.bombrange + 2;
+				console.log(playerObj1.bombrange);
+				scene.remove(value);
+				return false;
+			}
+			return true;
+		});
+		
 		scene.simulate();
 		
 		// controls
-		controls.update();
+		//controls.update();
 		
 		TWEEN.update();
 	}
@@ -387,50 +430,93 @@ $(document).ready(function() {
 	/*
 	 * FUNCTIONS
 	 */
-	function spawnBomb(){
+	function spawnPlayer(x,y,z, material){
+		radius = 25;
+		segments = 36;
+		rings = 36;
+		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), material, 9999 );
+		playerObj.position.x = x; //rows*25 - 25;
+		playerObj.position.y = y; //25;
+		playerObj.position.z = z; //columns*25 - 25;
+		playerObj.castShadow = true;
+		
+		playerObj.isActive = true;
+		playerObj.bombrange = 5;
+		playerObj.bomblimit = 1;
+		playerObj.speed = 100;
+		
+		// Enable CCD if the object moves more than 1 meter in one simulation frame
+		playerObj.setCcdMotionThreshold(100);
+		
+		// Set the radius of the embedded sphere such that it is smaller than the object
+		playerObj.setCcdSweptSphereRadius(1.2);
+		
+		return playerObj;
+	}
+	
+	function spawnBomb(playerObj){
 		// TODO check bombcount for player
 		var materialBlack = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0x090909 }),
 			.9, // high friction
-			.0 // low restitution
+			.0 // low restitutions
 		);
 		
 		radius = 20;
 		segments = 36;
 		rings = 36;
 		var bomb = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialBlack, 9999999999 );
-		bombs.push(bomb);
-		bombIndex = jQuery.inArray(bomb, bombs);
-		console.log(bombIndex);
-		bomb.position.x = playerObj.position.x;
+		bomb.owner = playerObj;
+		bomb.isBomb = true;
+		//console.log(bombIndex);
+		bomb.position.x = Math.floor(playerObj.position.x/50)*50+25;
 		bomb.position.y = 20;
-		bomb.position.z = playerObj.position.z;
+		bomb.position.z = Math.round(playerObj.position.z/50)*50;
+		addBomb = true;
+		$.each(bombs,function(index, value){
+			if(value != null && value.position.x == bomb.position.x && value.position.z == bomb.position.z)
+				addBomb = false;
+		});
 		bomb.castShadow = true;
-		scene.add(bomb);
-		explodeBomb(bombIndex);
-		function explodeBomb(bombIndex){
-			// TODO chain reaction for bombs
-			// TODO nice effects for explosions + sounds
-			var thisBomb = bombs[bombIndex];
-			var scale = { x : 1, y: 1, z: 1 };
-			var target = { x : 1.5, y: 1.5, z: 1.2 };
-			var tween = new TWEEN.Tween(scale).to(target, 8000);
-			tween.easing(TWEEN.Easing.Elastic.InOut);
-			tween.start();
-			tween.onUpdate(function(){
-				thisBomb.scale.x = scale.x;
-				thisBomb.scale.y = scale.y;
-				thisBomb.scale.z = scale.z;
-			});
-			
-			setTimeout(function(){
-				bomb = bombs[bombIndex];
-				explosionRayCast(0,0,-1, bomb);
-				explosionRayCast(-1,0,0, bomb);
-				explosionRayCast(0,0,1, bomb);
-				explosionRayCast(1,0,0, bomb);
-				scene.remove(bomb);
-			},5000);
+		if(addBomb){
+			bombs.push(bomb);
+			bombIndex = jQuery.inArray(bomb, bombs);
+			bomb.bombIndex = bombIndex;
+			scene.add(bomb);
+			startBomb(bombIndex);
+		}
+	}
+	
+	function startBomb(bombIndex){
+		// TODO chain reaction for bombs
+		// TODO nice effects for explosions + sounds
+		var thisBomb = bombs[bombIndex];
+		var scale = { x : 1, y: 1, z: 1 };
+		var target = { x : 1.5, y: 1.5, z: 1.2 };
+		var tween = new TWEEN.Tween(scale).to(target, 4000);
+		tween.easing(TWEEN.Easing.Elastic.InOut);
+		tween.start();
+		tween.onUpdate(function(){
+			thisBomb.scale.x = scale.x;
+			thisBomb.scale.y = scale.y;
+			thisBomb.scale.z = scale.z;
+		});
+		
+		setTimeout(function(){
+			detonateBombe(bombIndex);
+		},3000); // time until explosion
+	}
+	function detonateBombe(bombIndex){
+		if(bombs[bombIndex] != null){
+			console.log('BOOM: ' + bombIndex);
+			bomb = bombs[bombIndex];
+			scene.remove(bomb);
+			// remove bomb from array
+	        bombs[bombIndex] = null; 
+			explosionRayCast(0,0,-1, bomb);
+			explosionRayCast(-1,0,0, bomb);
+			explosionRayCast(0,0,1, bomb);
+			explosionRayCast(1,0,0, bomb);
 		}
 	}
 	
@@ -440,7 +526,7 @@ $(document).ready(function() {
 	    raycaster.ray.origin.set(bomb.position.x, bomb.position.y, bomb.position.z);
 	
 	    var geometry = new THREE.Geometry();
-	
+		
 	    intersections = raycaster.intersectObjects( objects );
 	    if ( intersections.length > 0 ) {
 	        var geometry = new THREE.Geometry();
@@ -449,9 +535,9 @@ $(document).ready(function() {
 	        geometry.vertices.push( bomb.position );
 	        geometry.vertices.push( intersections[0].object.position );
 	
-			var line = new THREE.Line(geometry, new THREE.LineBasicMaterial({color: 0x990000}));
-	        scene.add(line);
-	        setTimeout(function(){scene.remove(line);},1000);
+			//var line = new THREE.Line(geometry, new THREE.LineBasicMaterial({color: 0x990000}));
+	        //scene.add(line);
+	        //setTimeout(function(){scene.remove(line);},1000);
 	        
 	        p1 = bomb.position.x;
 	        p2 = bomb.position.y;
@@ -461,20 +547,143 @@ $(document).ready(function() {
 	        q3 = intersections[0].object.position.z;
 	        
 	        distance = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
-	        console.log( 'distance: ' + distance);
+	        //console.log( 'distance: ' + distance);
 	        
-	        if( distance <= player1.bombrange){
+	        // IF SOMETHING IS IN RANGE
+	        if( distance <= bomb.owner.bombrange/2*50){
 	        	for(i=0; i<objects.length; i++){
 					if( objects[i].id == intersections[0].object.id )
 						objects.splice(i,1);
 				}
+				
+				if(Math.random() > 0.5)
+					powerUps.push(spawnPowerUp(intersections[0].object.position.x, intersections[0].object.position.y, intersections[0].object.position.z) );
+					
 	        	scene.remove(intersections[0].object);
-	        	// TODO check if player got blown up
-	        	// TODO spawn PowerUp
 	        	
+	        	intersections[0].object.isActive = false; // TODO only for Players
+	        	if( intersections[0].object == playerObj1 ) console.log('Player 2 won!');
+	        	if( intersections[0].object == playerObj2 ) console.log('Player 1 won!');
 	        }
+	        // DETONATION EFFECT
+			// fire variables
+	        radius = 20;
+			segments = 18;
+			rings = 18;
+	        var materialYellow = new THREE.MeshPhongMaterial({ color: 0xffff00, opacity: 0.3, blending: THREE.AdditiveBlending, transparent: true });
+			// fire effect 1
+	        var fire1 = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialYellow);
+			fire1.position.x = bomb.position.x;
+			fire1.position.y = 20;
+			fire1.position.z = bomb.position.z;
+			fire1.castShadow = false;
+			//fire.scale.x = 10;
+			scene.add(fire1);
+			setTimeout(function(){scene.remove(fire1);},500);
+			
+			var scale1 = { x : 1, y: 1, z: 1, opacity: 0.7 };
+			var target1 = { x : bomb.owner.bombrange, y: 1, z: 1, opacity: 0.2 };
+			var tween1 = new TWEEN.Tween(scale1).to(target1, 500);
+			tween1.start();
+			tween1.onUpdate(function(){
+				fire1.scale.x = scale1.x;
+				fire1.scale.y = scale1.y;
+				fire1.scale.z = scale1.z;
+				fire1.material.opacity = scale1.opacity;
+			});
+			// fire effect 2
+	        var fire2 = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialYellow);
+			fire2.position.x = bomb.position.x;
+			fire2.position.y = 20;
+			fire2.position.z = bomb.position.z;
+			fire2.castShadow = false;
+			//fire.scale.z = 10;
+			scene.add(fire2);
+			setTimeout(function(){scene.remove(fire2);},500);
+			
+			var scale2 = { x : 1, y: 1, z: 1, opacity: 0.7 };
+			var target2 = { x : 1, y: 1, z: bomb.owner.bombrange, opacity: 0.0 };
+			var tween2 = new TWEEN.Tween(scale2).to(target2, 500);
+			tween2.start();
+			tween2.onUpdate(function(){
+				fire2.scale.x = scale2.x;
+				fire2.scale.y = scale2.y;
+				fire2.scale.z = scale2.z;
+				fire2.material.opacity = scale2.opacity;
+			});
 	    }
+	    
+	    // chain reaction for bombs
+	    intersectionsBombs = raycaster.intersectObjects( bombs );
+	   	if( intersectionsBombs.length >= 1 && intersectionsBombs[0].object.isBomb )  {
+	   		console.log(intersectionsBombs[0].object.bombIndex);
+    		detonateBombe(intersectionsBombs[0].object.bombIndex);
+    	}
 	}
+	
+	function spawnBox(texture, x, y, z) {
+		var box, material;
+		
+		material = Physijs.createMaterial(
+			new THREE.MeshLambertMaterial({ map: texture }),
+			.6, // medium friction
+			.0 // low restitution
+		);
+		//material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+		//material.map.repeat.set( .5, .5 );
+		
+		//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+		
+		box = new Physijs.BoxMesh(
+			new THREE.CubeGeometry( 50, 50, 50 ),
+			material,
+			99999999 // mass: 0 = infinite
+		);
+		box.collisions = 0;
+		
+		box.position.set(
+			x, // x
+			y, // y
+			z // z
+		);
+		
+		box.castShadow = true;
+		//box.addEventListener( 'collision', handleCollision );
+		//box.addEventListener( 'ready', spawnBox );
+		scene.add( box );
+		objects.push();
+		return box;
+	}
+	
+	function spawnPowerUp(x, y, z) {
+		var box, material;
+		
+		material = new THREE.MeshLambertMaterial({ color: 0xFFFF00 });
+		//material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+		//material.map.repeat.set( .5, .5 );
+		
+		//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
+		
+		box = new THREE.Mesh(
+			new THREE.CubeGeometry( 50, 50, 50 ),
+			material
+		);
+		
+		box.position.set(
+			x, // x
+			y, // y
+			z // z
+		);
+		
+		box.castShadow = true;
+		box.type = "range";
+		//box.addEventListener( 'collision', handleCollision );
+		//box.addEventListener( 'ready', spawnBox );
+		scene.add( box );
+		objects.push();
+		return box;
+	}
+	
 	
 	////////////////////////////////////////////
 	// Create and Draw Map 
@@ -502,37 +711,4 @@ $(document).ready(function() {
 		console.log(map);
 	}
 	
-	function spawnBox(texture, x, y, z) {
-			var box, material;
-			
-			material = Physijs.createMaterial(
-				new THREE.MeshLambertMaterial({ map: texture }),
-				.6, // medium friction
-				.0 // low restitution
-			);
-			//material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
-			//material.map.repeat.set( .5, .5 );
-			
-			//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
-			
-			box = new Physijs.BoxMesh(
-				new THREE.CubeGeometry( 50, 50, 50 ),
-				material,
-				99999999 // mass: 0 = infinite
-			);
-			box.collisions = 0;
-			
-			box.position.set(
-				x, // x
-				y, // y
-				z // z
-			);
-			
-			box.castShadow = true;
-			//box.addEventListener( 'collision', handleCollision );
-			//box.addEventListener( 'ready', spawnBox );
-			scene.add( box );
-			objects.push();
-			return box;
-		}
 });
