@@ -17,6 +17,7 @@ $(document).ready(function() {
 	var particleMaterial;
 	
 	var objects = [];
+	var notSolidBombs = [];
 	var bombs = [];
 	var powerUps = [];
 	var light;
@@ -30,8 +31,8 @@ $(document).ready(function() {
 	var fields = new Array();
 	
 	//Set the number of rows and columns for the board
-	var rows = 20;
-	var columns = 15;
+	var rows = 19;
+	var columns = 11;
 	
 	var litCube;
 	
@@ -66,7 +67,7 @@ $(document).ready(function() {
 		
 		// Camera
 		camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 10000 );
-		camera.position.set( 0, 730, 50 );
+		camera.position.set( 0, 730, 1 ); // y = 430
 		camera.lookAt(scene.position);
 
 		//controls = new THREE.OrbitControls( camera );
@@ -84,6 +85,8 @@ $(document).ready(function() {
 		
 		crateTexture = new THREE.ImageUtils.loadTexture("textures/crate.jpg");
 		crateTexture.anisotropy = maxAnisotropy;
+		crate3Texture = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
+		crate3Texture.anisotropy = maxAnisotropy;
 		var materialWall = Physijs.createMaterial(
 			new THREE.MeshLambertMaterial({ map: crateTexture }),
 			.9, // high friction
@@ -107,38 +110,85 @@ $(document).ready(function() {
 		
 		for(i=0;i<board.length;i++){
 			for(j=0;j<board[i].length;j++){
-				if( board[i][j]==1){
+				if( board[i][j]==1){ // normal block
 					fieldHeight = 50;
 					yPosition = fieldHeight/2;
 					
 					x = (i+1)*50 - board.length*50/2 -25;
 					z = (j+1)*50 - board[i].length*50/2 -25;
 					y = yPosition;
-					objects.push( spawnBox(crateTexture, x, y, z) );
+					spawnBox(crateTexture, x, y, z, false);
+				}
+				else if( board[i][j]==2){ // solid block
+					fieldHeight = 50;
+					yPosition = fieldHeight/2;
+					
+					x = (i+1)*50 - board.length*50/2 -25;
+					z = (j+1)*50 - board[i].length*50/2 -25;
+					y = yPosition;
+					spawnBox(crate3Texture, x, y, z, true);
 				} 
 			}
 		}
 		
+		// TODO arena walls
+		wallsTexture1 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
+		wallsTexture1.anisotropy = maxAnisotropy;
+		
+		material1 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture1 }), 0, 0);
+		material1.map.wrapS = material1.map.wrapT = THREE.RepeatWrapping;
+		material1.map.repeat.set( rows, 1 );
+		
+		topBorder = new Physijs.BoxMesh(new THREE.CubeGeometry( rows*50, 20, 50 ), material1, 0);
+		topBorder.position.set(0, 10, -columns*50/2-25);
+		topBorder.castShadow = true;
+				
+		scene.add( topBorder );
+		
+		bottomBorder = new Physijs.BoxMesh(new THREE.CubeGeometry( rows*50, 20, 50 ), material1, 0);
+		bottomBorder.position.set(0, 10, columns*50/2+25);
+		bottomBorder.castShadow = true;
+		
+		scene.add( bottomBorder );
+		
+		wallsTexture2 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
+		wallsTexture2.anisotropy = maxAnisotropy;
+		
+		material2 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture2 }), 0, 0);
+		material2.map.wrapS = material2.map.wrapT = THREE.RepeatWrapping;
+		material2.map.repeat.set( 1, columns+2 );
+		
+		leftBorder = new Physijs.BoxMesh(new THREE.CubeGeometry( 50, 20, (columns+2)*50 ), material2, 0);
+		leftBorder.position.set(-rows*50/2-25, 10, 0);
+		leftBorder.castShadow = true;
+				
+		scene.add( leftBorder );
+		
+		rightBorder = new Physijs.BoxMesh(new THREE.CubeGeometry( 50, 20, (columns+2)*50 ), material2, 0);
+		rightBorder.position.set(rows*50/2+25, 10, 0);
+		rightBorder.castShadow = true;
+		
+		scene.add( rightBorder );
 		
 		
 		// PLAYERS
 		var materialWhite = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0xeeeeee }),
-			.9, // high friction
+			.0, // high friction
 			.0 // low restitution
 		);
 		var materialBlue = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 100.0 }),
-			.9, // high friction
+			.0, // high friction
 			.0 // low restitution
 		);
 		var materialRed = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100.0 }),
-			.9, // high friction
+			.0, // high friction
 			.0 // low restitution
 		);
 		
-		playerObj1 = spawnPlayer(25,25,25, materialBlue);
+		playerObj1 = spawnPlayer(rows*-25 + 25, 25, columns*-25 + 25, materialBlue);
 		objects.push(playerObj1);
 		scene.add(playerObj1);
 		
@@ -150,7 +200,6 @@ $(document).ready(function() {
 		playerObj2 = spawnPlayer(rows*25 - 25, 25, columns*25 - 25, materialRed);
 		objects.push(playerObj2);
 		scene.add(playerObj2);
-		
 		
 		//////////////////////////////////////
 		// LIGHT AND SHADOWS				//
@@ -196,8 +245,8 @@ $(document).ready(function() {
 
 		container.appendChild( renderer.domElement );
 
-		document.addEventListener( 'mousedown', onDocumentMouseDown, false );
-		document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+		//document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+		//document.addEventListener( 'mouseup', onDocumentMouseUp, false );
 		window.addEventListener( 'resize', onWindowResize, false );
 		
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,74 +380,130 @@ $(document).ready(function() {
 	
 	function update() {
 		keyboard.update();
-	
+		
 		var delta = clock.getDelta();
 		
-		// Player 1
-		var moveDistance1 = playerObj1.speed * delta;  
-	
-		if ( keyboard.pressed("A") )
-			playerObj1.translateX( -moveDistance1 );
-			
-		if ( keyboard.pressed("D") )
-			playerObj1.translateX(  moveDistance1 );
-			
-		if ( keyboard.pressed("W") )
-			playerObj1.translateZ( -moveDistance1 );
-			
-		if ( keyboard.pressed("S") )
-			playerObj1.translateZ(  moveDistance1 );
-			
-		if ( keyboard.down("shift") ){
-			//playerObj1.material.color = new THREE.Color(0xff0000);
-			//spawnBox(crateTexture, 25, 100, 25);
-			spawnBomb(playerObj1);
-		}
-		
-		// Player 2
-		var moveDistance2 = playerObj2.speed * delta;
-				
-		if ( keyboard.pressed("left") )
-			playerObj2.translateX( -moveDistance2 );
-			
-		if ( keyboard.pressed("right") )
-			playerObj2.translateX(  moveDistance2 );
-			
-		if ( keyboard.pressed("up") )
-			playerObj2.translateZ( -moveDistance2 );
-			
-		if ( keyboard.pressed("down") )
-			playerObj2.translateZ(  moveDistance2 );
-			
-		if ( keyboard.down("space") ){
-			//playerObj1.material.color = new THREE.Color(0xff0000);
-			//spawnBox(crateTexture, 25, 100, 25);
-			spawnBomb(playerObj2);
-		}
-		
-		
-		
-		
-		
-		if ( keyboard.up("R") )
-			playerObj1.material.color = new THREE.Color(0x0000ff);
-		
+		// TODO capsule movement in function
 		if (playerObj1.isActive){
-			playerObj1.__dirtyPosition = true;
+			//playerObj1.__dirtyPosition = true;
 			playerObj1.__dirtyRotation = true;
 			playerObj1.setAngularFactor({ x: 0, y: 0, z: 0 });
 			playerObj1.setLinearVelocity({ x: 0, y: 0, z: 0 });
+			playerObj1.setLinearFactor({ x: 1, y: 0, z: 1 });
 			playerObj1.position.y = 25;
+			
+			// Player 1
+			s =  playerObj1.speed; // speed for single direction
+			s2 = Math.sqrt( playerObj1.speed*playerObj1.speed/2 ); // speed for diagonal direction
+			
+			// diagonal
+			if ( keyboard.pressed("A") && keyboard.pressed("W") )
+				playerObj1.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
+			else if ( keyboard.pressed("A") && keyboard.pressed("S") )
+				playerObj1.setLinearVelocity({ x: -s2, y: 0, z: s2 });
+			else if ( keyboard.pressed("D") && keyboard.pressed("W") )
+				playerObj1.setLinearVelocity({ x: s2, y: 0, z: -s2 });
+			else if ( keyboard.pressed("D") && keyboard.pressed("S") )
+				playerObj1.setLinearVelocity({ x: s2, y: 0, z: s2 });
+			else {
+				// up, down, left, right
+				if ( keyboard.pressed("A") )
+					playerObj1.setLinearVelocity({ x: -s, y: 0, z: 0 });
+				if ( keyboard.pressed("D") )
+					playerObj1.setLinearVelocity({ x: s, y: 0, z: 0 });
+					
+				if ( keyboard.pressed("W") )
+					playerObj1.setLinearVelocity({ x: 0, y: 0, z: -s });
+				if ( keyboard.pressed("S") )
+					playerObj1.setLinearVelocity({ x: 0, y: 0, z: s });
+			}
+			if ( keyboard.down("shift") ){
+				//playerObj1.material.color = new THREE.Color(0xff0000);
+				//spawnBox(crateTexture, 25, 100, 25);
+				spawnBomb(playerObj1);
+			}
 		}
 		if (playerObj2.isActive){
-			playerObj2.__dirtyPosition = true;
+			//playerObj2.__dirtyPosition = true;
 			playerObj2.__dirtyRotation = true;
 			playerObj2.setAngularFactor({ x: 0, y: 0, z: 0 });
 			playerObj2.setLinearVelocity({ x: 0, y: 0, z: 0 });
+			playerObj2.setLinearFactor({ x: 1, y: 0, z: 1 });
 			playerObj2.position.y = 25;
+			
+			// Player 2
+			s =  playerObj2.speed; // speed for single direction
+			s2 = Math.sqrt( playerObj2.speed*playerObj2.speed/2 ); // speed for diagonal direction
+			
+			// diagonal
+			if ( keyboard.pressed("left") && keyboard.pressed("up") )
+				playerObj2.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
+			else if ( keyboard.pressed("left") && keyboard.pressed("down") )
+				playerObj2.setLinearVelocity({ x: -s2, y: 0, z: s2 });
+			else if ( keyboard.pressed("right") && keyboard.pressed("up") )
+				playerObj2.setLinearVelocity({ x: s2, y: 0, z: -s2 });
+			else if ( keyboard.pressed("right") && keyboard.pressed("down") )
+				playerObj2.setLinearVelocity({ x: s2, y: 0, z: s2 });
+			else {
+				// up, down, left, right
+				if ( keyboard.pressed("left") )
+					playerObj2.setLinearVelocity({ x: -s, y: 0, z: 0 });
+				if ( keyboard.pressed("right") )
+					playerObj2.setLinearVelocity({ x: s, y: 0, z: 0 });
+					
+				if ( keyboard.pressed("up") )
+					playerObj2.setLinearVelocity({ x: 0, y: 0, z: -s });
+				if ( keyboard.pressed("down") )
+					playerObj2.setLinearVelocity({ x: 0, y: 0, z: s });
+			}
+			if ( keyboard.down("space") ){
+				//playerObj2.material.color = new THREE.Color(0xff0000);
+				//spawnBox(crateTexture, 25, 100, 25);
+				spawnBomb(playerObj2);
+			}
 		}
 		
+		// BOMBS BLOCKING BOX
+		notSolidBombs = $.grep(notSolidBombs, function(bomb, index){
+			// Player 1
+			p1 = playerObj1.position.x;
+	        p2 = playerObj1.position.y;
+	        p3 = playerObj1.position.z;
+	        q1 = bomb.position.x;
+	        q2 = bomb.position.y;
+	        q3 = bomb.position.z;
+	        
+	        distanceP1 = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
+	        
+	        // Player 2
+			p1 = playerObj2.position.x;
+	        p2 = playerObj2.position.y;
+	        p3 = playerObj2.position.z;
+	        q1 = bomb.position.x;
+	        q2 = bomb.position.y;
+	        q3 = bomb.position.z;
+	        
+	        distanceP2 = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
+	        
+			if( distanceP1 >= 40 && distanceP2 >= 40 ){
+				material = Physijs.createMaterial(new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.5 }), 0, 0);
+				
+				bomb.box = new Physijs.BoxMesh(
+					new THREE.CubeGeometry( 50, 20, 50 ),
+					material,
+					99999999999999 // mass: 0 = infinite
+				);
+				bomb.box.position = bomb.position;
+				scene.add(bomb.box);
+				
+				return false;
+			}
+			
+			return true;
+			
+		});
 		
+		// POWERUPS
 		powerUps = $.grep(powerUps, function(value, index){
 			// PowerUp Player 1
 			p1 = playerObj1.position.x;
@@ -409,13 +514,31 @@ $(document).ready(function() {
 	        q3 = value.position.z;
 	        
 	        distance = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
-			if( distance <= 30 ){
+			if( distance <= 40 ){
 				if( value.type == "range" )
-				playerObj1.bombrange = playerObj1.bombrange + 2;
-				console.log(playerObj1.bombrange);
+				playerObj1.bombRange = playerObj1.bombRange + 2;
+				console.log('player 1 range: ' + playerObj1.bombRange);
 				scene.remove(value);
 				return false;
 			}
+			
+			// PowerUp Player 2
+			p1 = playerObj2.position.x;
+	        p2 = playerObj2.position.y;
+	        p3 = playerObj2.position.z;
+	        q1 = value.position.x;
+	        q2 = value.position.y;
+	        q3 = value.position.z;
+	        
+	        distance = Math.floor( Math.sqrt( Math.pow(q1-p1,2) + Math.pow(q2-p2,2) + Math.pow(q3-p3,2) ) );
+			if( distance <= 40 ){
+				if( value.type == "range" )
+				playerObj2.bombRange = playerObj2.bombRange + 2;
+				console.log('palyer 2 range: ' + playerObj2.bombRange);
+				scene.remove(value);
+				return false;
+			}
+			
 			return true;
 		});
 		
@@ -430,20 +553,24 @@ $(document).ready(function() {
 	/*
 	 * FUNCTIONS
 	 */
+	
 	function spawnPlayer(x,y,z, material){
-		radius = 25;
+		radius = 23;
 		segments = 36;
 		rings = 36;
-		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), material, 9999 );
+		playerObj = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), material, 10000 );
 		playerObj.position.x = x; //rows*25 - 25;
 		playerObj.position.y = y; //25;
 		playerObj.position.z = z; //columns*25 - 25;
 		playerObj.castShadow = true;
 		
 		playerObj.isActive = true;
-		playerObj.bombrange = 5;
-		playerObj.bomblimit = 1;
-		playerObj.speed = 100;
+		playerObj.bombRange = 5;
+		playerObj.bombLimit = 1;
+		playerObj.activeBombs = 0;
+		playerObj.speed = 200;
+		
+		playerObj.setLinearFactor(THREE.Vector3( 0, 0, 0 ));
 		
 		// Enable CCD if the object moves more than 1 meter in one simulation frame
 		playerObj.setCcdMotionThreshold(100);
@@ -455,7 +582,10 @@ $(document).ready(function() {
 	}
 	
 	function spawnBomb(playerObj){
-		// TODO check bombcount for player
+	
+		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		// TODO FIXME bomb goes tru solid blox, maybe boxes, too, find reason and FIX!!!!
+
 		var materialBlack = Physijs.createMaterial(
 			new THREE.MeshPhongMaterial({ color: 0x090909 }),
 			.9, // high friction
@@ -465,30 +595,45 @@ $(document).ready(function() {
 		radius = 20;
 		segments = 36;
 		rings = 36;
-		var bomb = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialBlack, 9999999999 );
+		// TODO use physijs mesh
+		//var bomb = new Physijs.SphereMesh( new THREE.SphereGeometry(radius, segments, rings), materialBlack, 1000000 );
+		var bomb = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialBlack, 100 );
 		bomb.owner = playerObj;
 		bomb.isBomb = true;
 		//console.log(bombIndex);
-		bomb.position.x = Math.floor(playerObj.position.x/50)*50+25;
+		bomb.position.x = Math.round(playerObj.position.x/50)*50;
 		bomb.position.y = 20;
 		bomb.position.z = Math.round(playerObj.position.z/50)*50;
+		
+		bomb.castShadow = true;
+		//bomb.setLinearFactor(THREE.Vector3( 0, 0, 0 ));
+		
+		// condition for not placing 2 bombs in the same spot
 		addBomb = true;
 		$.each(bombs,function(index, value){
 			if(value != null && value.position.x == bomb.position.x && value.position.z == bomb.position.z)
 				addBomb = false;
 		});
-		bomb.castShadow = true;
+		// check if bombLimit is exceeded
+		if( playerObj.activeBombs >= playerObj.bombLimit ){
+			addBomb = false;
+		}
+		
 		if(addBomb){
 			bombs.push(bomb);
 			bombIndex = jQuery.inArray(bomb, bombs);
 			bomb.bombIndex = bombIndex;
+			bomb.owner = playerObj;
 			scene.add(bomb);
 			startBomb(bombIndex);
+			// make solid after player left object
+			notSolidBombs.push(bomb);
+			playerObj.activeBombs++;
 		}
+		
 	}
 	
 	function startBomb(bombIndex){
-		// TODO chain reaction for bombs
 		// TODO nice effects for explosions + sounds
 		var thisBomb = bombs[bombIndex];
 		var scale = { x : 1, y: 1, z: 1 };
@@ -510,20 +655,28 @@ $(document).ready(function() {
 		if(bombs[bombIndex] != null){
 			console.log('BOOM: ' + bombIndex);
 			bomb = bombs[bombIndex];
+	        // remove blocking box for bomb
+			scene.remove(bomb.box);
+			// remove bomb froms cene
 			scene.remove(bomb);
+	        
 			// remove bomb from array
-	        bombs[bombIndex] = null; 
+	        bombs[bombIndex] = null;
+	        
 			explosionRayCast(0,0,-1, bomb);
 			explosionRayCast(-1,0,0, bomb);
 			explosionRayCast(0,0,1, bomb);
 			explosionRayCast(1,0,0, bomb);
+			
+			bomb.owner.activeBombs--;
+			console.log(bomb.owner.activeBombs);
 		}
 	}
 	
 	function explosionRayCast(x,y,z, bomb){
 		var raycaster = new THREE.Raycaster();
 	    raycaster.ray.direction.set(x, y, z);
-	    raycaster.ray.origin.set(bomb.position.x, bomb.position.y, bomb.position.z);
+	    raycaster.ray.origin.set(bomb.position.x, 15, bomb.position.z);
 	
 	    var geometry = new THREE.Geometry();
 		
@@ -550,20 +703,22 @@ $(document).ready(function() {
 	        //console.log( 'distance: ' + distance);
 	        
 	        // IF SOMETHING IS IN RANGE
-	        if( distance <= bomb.owner.bombrange/2*50){
+	        if( distance <= bomb.owner.bombRange/2*50){
 	        	for(i=0; i<objects.length; i++){
 					if( objects[i].id == intersections[0].object.id )
 						objects.splice(i,1);
 				}
 				
-				if(Math.random() > 0.5)
-					powerUps.push(spawnPowerUp(intersections[0].object.position.x, intersections[0].object.position.y, intersections[0].object.position.z) );
-					
-	        	scene.remove(intersections[0].object);
+				if( !intersections[0].object.solid ){
+					if(Math.random() > 0.5)
+						powerUps.push(spawnPowerUp(intersections[0].object.position.x, intersections[0].object.position.y, intersections[0].object.position.z) );
+	        		scene.remove(intersections[0].object);
+	        		
+		        	intersections[0].object.isActive = false; // TODO only for Players
+		        	if( intersections[0].object == playerObj1 ) console.log('Player 2 won!');
+		        	if( intersections[0].object == playerObj2 ) console.log('Player 1 won!');
+				}	
 	        	
-	        	intersections[0].object.isActive = false; // TODO only for Players
-	        	if( intersections[0].object == playerObj1 ) console.log('Player 2 won!');
-	        	if( intersections[0].object == playerObj2 ) console.log('Player 1 won!');
 	        }
 	        // DETONATION EFFECT
 			// fire variables
@@ -582,7 +737,7 @@ $(document).ready(function() {
 			setTimeout(function(){scene.remove(fire1);},500);
 			
 			var scale1 = { x : 1, y: 1, z: 1, opacity: 0.7 };
-			var target1 = { x : bomb.owner.bombrange, y: 1, z: 1, opacity: 0.2 };
+			var target1 = { x : bomb.owner.bombRange, y: 1, z: 1, opacity: 0.2 };
 			var tween1 = new TWEEN.Tween(scale1).to(target1, 500);
 			tween1.start();
 			tween1.onUpdate(function(){
@@ -591,6 +746,8 @@ $(document).ready(function() {
 				fire1.scale.z = scale1.z;
 				fire1.material.opacity = scale1.opacity;
 			});
+			// bomb light - TODO predefined light put in place when needed?
+			
 			// fire effect 2
 	        var fire2 = new THREE.Mesh( new THREE.SphereGeometry(radius, segments, rings), materialYellow);
 			fire2.position.x = bomb.position.x;
@@ -602,7 +759,7 @@ $(document).ready(function() {
 			setTimeout(function(){scene.remove(fire2);},500);
 			
 			var scale2 = { x : 1, y: 1, z: 1, opacity: 0.7 };
-			var target2 = { x : 1, y: 1, z: bomb.owner.bombrange, opacity: 0.0 };
+			var target2 = { x : 1, y: 1, z: bomb.owner.bombRange, opacity: 0.0 };
 			var tween2 = new TWEEN.Tween(scale2).to(target2, 500);
 			tween2.start();
 			tween2.onUpdate(function(){
@@ -613,7 +770,9 @@ $(document).ready(function() {
 			});
 	    }
 	    
-	    // chain reaction for bombs
+	    // chain reaction for bombs 
+	    // TODO use objects array instead of separate bomb array to ensure only the first object (bomb/block/player) gets hit
+	    // otherwise chain reactions will happen even if a block is between bombs
 	    intersectionsBombs = raycaster.intersectObjects( bombs );
 	   	if( intersectionsBombs.length >= 1 && intersectionsBombs[0].object.isBomb )  {
 	   		console.log(intersectionsBombs[0].object.bombIndex);
@@ -621,7 +780,7 @@ $(document).ready(function() {
     	}
 	}
 	
-	function spawnBox(texture, x, y, z) {
+	function spawnBox(texture, x, y, z, solid) {
 		var box, material;
 		
 		material = Physijs.createMaterial(
@@ -635,7 +794,7 @@ $(document).ready(function() {
 		//material = new THREE.MeshLambertMaterial({ map: THREE.ImageUtils.loadTexture( 'images/rocks.jpg' ) });
 		
 		box = new Physijs.BoxMesh(
-			new THREE.CubeGeometry( 50, 50, 50 ),
+			new THREE.CubeGeometry( 50, 20, 50 ),
 			material,
 			99999999 // mass: 0 = infinite
 		);
@@ -648,14 +807,16 @@ $(document).ready(function() {
 		);
 		
 		box.castShadow = true;
+		box.solid = solid;
 		//box.addEventListener( 'collision', handleCollision );
 		//box.addEventListener( 'ready', spawnBox );
 		scene.add( box );
-		objects.push();
+		objects.push(box);
 		return box;
 	}
 	
 	function spawnPowerUp(x, y, z) {
+		// TODO more power up types (array) with different chances and effects
 		var box, material;
 		
 		material = new THREE.MeshLambertMaterial({ color: 0xFFFF00 });
@@ -698,16 +859,27 @@ $(document).ready(function() {
 				var square = Math.floor(Math.random()*4);
 				//0 = open, 1 = obstacle
 				tile = new Object();
-				if (square == 0){
+				if(x%2 == 1 && y%2 == 1) { //solid
+					board[x][y] = 2;
+					tile.passable = 0;
+					tile.solid = 1;
+				} else if (square == 0){ // destructible crate
 					board[x][y] = 1;
 					tile.passable = 1;
-				} else {
+				} else { // empty
 					board[x][y] = 0;
 					tile.passable = 0;
 				}
 				map[x][y] = tile;
 			}
 		}
+		// clear starting positions
+		board[0][0] = 0;
+		board[1][0] = 0;
+		board[0][1] = 0;
+		board[rows-1][columns-1] = 0;
+		board[rows-2][columns-1] = 0;
+		board[rows-1][columns-2] = 0;
 		console.log(map);
 	}
 	
