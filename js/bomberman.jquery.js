@@ -188,18 +188,15 @@ $(document).ready(function() {
 			.0 // low restitution
 		);
 		
-		playerObj1 = spawnPlayer(rows*-25 + 25, 25, columns*-25 + 25, materialBlue);
-		objects.push(playerObj1);
-		scene.add(playerObj1);
+		playerObj1 = spawnPlayer(rows*-25 + 25, 25, columns*-25 + 25, materialBlue, 'Player1');
+		
 		
 		//playerObj1.addEventListener( 'collision', function( other_object, relative_velocity, relative_rotation, contact_normal ) {
 		    // `this` has collided with `other_object` with an impact speed of `relative_velocity` and a rotational force of `relative_rotation` and at normal `contact_normal`
 		  //  console.log('hit');
 		//});
 		
-		playerObj2 = spawnPlayer(rows*25 - 25, 25, columns*25 - 25, materialRed);
-		objects.push(playerObj2);
-		scene.add(playerObj2);
+		playerObj2 = spawnPlayer(rows*25 - 25, 25, columns*25 - 25, materialRed, 'Player2');
 		
 		//////////////////////////////////////
 		// LIGHT AND SHADOWS				//
@@ -554,7 +551,8 @@ $(document).ready(function() {
 	 * FUNCTIONS
 	 */
 	
-	function spawnPlayer(x,y,z, material){
+	function spawnPlayer(x,y,z, material, name){
+		if(name == null || name == '') name = 'Player';
 		radius = 23;
 		segments = 36;
 		rings = 36;
@@ -564,6 +562,7 @@ $(document).ready(function() {
 		playerObj.position.z = z; //columns*25 - 25;
 		playerObj.castShadow = true;
 		
+		playerObj.playerName = name;
 		playerObj.isActive = true;
 		playerObj.bombRange = 5;
 		playerObj.bombLimit = 1;
@@ -577,6 +576,9 @@ $(document).ready(function() {
 		
 		// Set the radius of the embedded sphere such that it is smaller than the object
 		playerObj.setCcdSweptSphereRadius(1.2);
+		
+		objects.push(playerObj);
+		scene.add(playerObj);
 		
 		return playerObj;
 	}
@@ -619,6 +621,7 @@ $(document).ready(function() {
 			addBomb = false;
 		}
 		
+		console.log('Bomb spawned by player ' + playerObj.playerName);
 		if(addBomb){
 			bombs.push(bomb);
 			bombIndex = jQuery.inArray(bomb, bombs);
@@ -629,6 +632,8 @@ $(document).ready(function() {
 			// make solid after player left object
 			notSolidBombs.push(bomb);
 			playerObj.activeBombs++;
+			console.log(playerObj.activeBombs);
+			console.log(playerObj);
 		}
 		
 	}
@@ -647,11 +652,11 @@ $(document).ready(function() {
 			thisBomb.scale.z = scale.z;
 		});
 		
-		setTimeout(function(){
-			detonateBombe(bombIndex);
+		thisBomb.timer = setTimeout(function(){
+			detonateBomb(bombIndex);
 		},3000); // time until explosion
 	}
-	function detonateBombe(bombIndex){
+	function detonateBomb(bombIndex){
 		if(bombs[bombIndex] != null){
 			console.log('BOOM: ' + bombIndex);
 			bomb = bombs[bombIndex];
@@ -669,7 +674,7 @@ $(document).ready(function() {
 			explosionRayCast(1,0,0, bomb);
 			
 			bomb.owner.activeBombs--;
-			console.log(bomb.owner.activeBombs);
+			console.log(bomb.owner.playerName + ' has ' + bomb.owner.activeBombs + ' active bombs');
 		}
 	}
 	
@@ -776,7 +781,7 @@ $(document).ready(function() {
 	    intersectionsBombs = raycaster.intersectObjects( bombs );
 	   	if( intersectionsBombs.length >= 1 && intersectionsBombs[0].object.isBomb )  {
 	   		console.log(intersectionsBombs[0].object.bombIndex);
-    		detonateBombe(intersectionsBombs[0].object.bombIndex);
+    		detonateBomb(intersectionsBombs[0].object.bombIndex);
     	}
 	}
 	
