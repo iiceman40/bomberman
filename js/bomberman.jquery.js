@@ -146,50 +146,12 @@ function init() {
 	renderer.shadowMapSoft = true; // to antialias the shadow
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	container.appendChild(renderer.domElement);
-	// Event Listeners
-	//document.addEventListener( 'mousedown', onDocumentMouseDown, false );
-	//document.addEventListener( 'mouseup', onDocumentMouseUp, false );
 	window.addEventListener('resize', onWindowResize, false);
 }
 function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 	renderer.setSize(window.innerWidth, window.innerHeight);
-}
-function onDocumentMouseDown(event) {
-	clientClickX = event.clientX;
-	clientClickY = event.clientY;
-}
-function onDocumentMouseUp(event) {
-	if (event.target == renderer.domElement) {
-		var x = event.clientX;
-		var y = event.clientY;
-		// If the mouse moved since the mousedown then don't consider this a selection
-		if (x != clientClickX || y != clientClickY)
-			return;
-		else {
-			var vector = new THREE.Vector3(( event.clientX / window.innerWidth ) * 2 - 1, -( event.clientY / window.innerHeight ) * 2 + 1, 0.5);
-			var projector = new THREE.Projector().unprojectVector(vector, camera);
-
-			var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
-			var intersects = raycaster.intersectObjects(objects);
-
-			if (intersects.length > 0) {
-				if (intersects[ 0 ].object.selected != true) {
-					intersects[ 0 ].object.materialBackup = intersects[ 0 ].object.material;
-					intersects[ 0 ].object.materialSelected = new THREE.MeshLambertMaterial({
-						map: intersects[ 0 ].object.materialBackup.map,
-						color: "red"
-					});
-					intersects[ 0 ].object.material = intersects[ 0 ].object.materialSelected;
-					intersects[ 0 ].object.selected = true;
-				} else {
-					intersects[ 0 ].object.material = intersects[ 0 ].object.materialBackup;
-					intersects[ 0 ].object.selected = false;
-				}
-			}
-		}
-	}
 }
 //////////////////////////////////////
 // ANIMATION                        //
