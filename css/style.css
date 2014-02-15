@@ -1,124 +1,157 @@
-@font-face {
-    font-family: 'england_hand_dbregular';
-    src: url('england-webfont.eot');
-    src: url('england-webfont.eot?#iefix') format('embedded-opentype'),
-         url('england-webfont.woff') format('woff'),
-         url('england-webfont.ttf') format('truetype'),
-         url('england-webfont.svg#england_hand_dbregular') format('svg');
-    font-weight: normal;
-    font-style: normal;
-
-}
-
-* {font-family: Verdana, Geneva, Arial, Helvetica, sans-serif; margin: 0px; padding: 0px;}
 body {
-	background: #000000;
-	background-size: cover;
+	margin: 0px;
 }
-
-/* GENERAL */
-.town-name {display: none; position: absolute; top: 0; left: 0; font-size: 110; color: #ffffff; font-family: england_hand_dbregular; padding: 40px; margin-top: -40px; text-shadow: 2px 2px 1px black;}
-.loading {position: fixed; top:0px; bottom: 0px; left: 0px; right: 0px; background: rgba(0,0,0,0.5); font-size: 40px; color: white; padding: 40% 40%;}
-.container-wrap {float:left; width: 800px; height: 800px; overflow: hidden; border: 1px solid green; background: #333;}
-.editor {float:left;}
-
-.hud {display:none; position: absolute; background: rgba(255,255,255,0.7); top: 0px; bottom: 0px; right: 0px; width: 200px;}
-.hud > div > div {padding: 0 10px;}
-.menuHeading {font-weight: bold; margin-top: 10px;}
-
-/* CASTLE */
-.block-type {cursor: pointer;}
-.block-type:hover {background: #BCD4EC !important;}
-.block-type.active {background: #EEEEEE;}
-
-.blockActions {cursor: pointer;}
-.blockAction {cursor: pointer;}
-.blockAction:hover {background: #BCD4EC !important;}
-
-.blockMaterial {cursor: pointer;}
-.blockMaterial:hover {background: #BCD4EC !important;}
-.blockMaterial.active {background: #EEEEEE;}
-
-.backToTownFromCastle {position: absolute; bottom: 10px; right: 10px;}
-
-/* FARM */
-.blockFarmType {cursor: pointer;}
-.blockFarmTypes.active {background: #EEEEEE;}
-
-.backToTownFromFarm {position: absolute; bottom: 10px; right: 10px;}
-
-/* DOCK */
-.ship-selector {
-	position: absolute;
-	top: 10px;
-	left: 5%;
-	background: url('/images/paper.png') no-repeat;
-	padding: 80px 120px;
-	width: 1120px;
-	height: 720px;
+button, .btn {
+	outline: none;
 }
-.selected-ships {
-	width: 33%;
-	background: rgba(0, 0, 0, 0.3);
-	height: 100%;
-	float: left;
-	border-radius: 5px;
-}
-.ship {
-	background: url('/images/icons/tall-ship.svg') no-repeat brown;
-	background-size: cover;
-	background-position: -15px 5px;
-	width: 50px;
-	height: 50px;
-	display: inline-block;
-	padding: 15px;
+h1 {
+	text-shadow: 2px 2px 0px #202020, -2px 0px 0px #606060;
+	color: #505050;
+	font-size: 5em;
+	font-weight: bold;
 	text-align: center;
-	margin: 0px 10px 10px 10px;
-	overflow: hidden;
-	text-indent: -999999px;
-	border-radius: 5px;
 }
-button {
-	padding: 10px 30px;
-	margin: 10px;
-	font-family: england_hand_dbregular;
-	font-size: 32px;
-	background: rgba(0,0,0,0.3);
-	border: none;
-	border-radius: 5px;
+h1 small {
+	font-size: 0.4em;
 }
-button:hover {
+
+.hidden {
+	display:none;
+}
+.align-center{
+	text-align: center;
+}
+.full-width {
+	width: 90%;
+}
+
+.player {
+	height:42%;
+}
+.playerBtn {
+	height: 95%;
+	width: 100%;
+}
+.player0 .playerBtn {
+	-webkit-border-radius: 10% 0 0 0;
+}
+.player1 .playerBtn {
+	-webkit-border-radius: 0 10% 0 0;
+}
+.player2 .playerBtn {
+	-webkit-border-radius: 0 0 0 10%;
+}
+.player3 .playerBtn {
+	-webkit-border-radius: 0 0 10% 0;
+}
+.playerBtn .glyphicon {
+	font-size: 20em;
+	color: #404040;
+}
+
+.bman-head {
+	height: 80%;
+	margin-top: -10%
+}
+
+.playerName {
+	position: absolute;
+	z-index: 0;
+	width: 30%;
+	bottom: 10%;
+	left: 35%;
+	text-align: center;
+}
+.login {
+	display: block;
+	position: absolute;
+	z-index: 0;
+	bottom: 11%;
+	left: 28%;
+	font-size: 2em;
+}
+
+.play-button {
+	height: 300px;
+	width: 300px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin-top: -150px;
+	margin-left: -150px;
+	-webkit-border-radius: 50%;
+	background: #e570e7; /* Old browsers */
+	background: -moz-linear-gradient(top,  #e570e7 0%, #c85ec7 47%, #a849a3 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#e570e7), color-stop(47%,#c85ec7), color-stop(100%,#a849a3)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* IE10+ */
+	background: linear-gradient(to bottom,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e570e7', endColorstr='#a849a3',GradientType=0 ); /* IE6-9 */
+	border: 2px solid purple;
+	padding: 0px 0 0 20px;
+	text-align: center;
+}
+.play-button:hover {
+	background: purple;
+}
+.play-button .glyphicon {
+	font-size: 15em;
+	color: #660066;
+	text-shadow: 2px 1px #bb99bb, -2px -1px #440044;
+	-webkit-transition: font-size 0.7s, color 1s, text-shadow 1s;
+}
+.play-button:hover .glyphicon {
+	font-size: 15.5em;
+	color: #ee99ee;
+	text-shadow: 2px 1px #ffeeff, -2px -1px #aa77aa;
+}
+.play-menu {
+	height: 300px;
+	width: 300px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin-top: -150px;
+	margin-left: -150px;
+	background: rgba(0,0,0,0.7);
+	-webkit-border-radius: 50%;
+	-webkit-transition: width 1s, height 1s, margin-top 1s, margin-left 1s;
+}
+.play-menu:hover {
+	height: 600px;
+	width: 600px;
+	margin-top: -300px;
+	margin-left: -300px;
+	z-index: 5;
+}
+#startGame button {
+	text-shadow: -1px -1px #000000, 1px 1px #dd66dd;
+	z-index: 20;
+}
+
+.play-menu .option {
+	position: absolute;
 	cursor: pointer;
-	color: #FFFFFF;
-	text-shadow: 1px 1px 1px black;
+	z-index: 10;
 }
-
-/* MAP */
-.map-area {
-	display: none;
+.play-menu .option .glyphicon {
+	font-size: 5em;
+}
+.play-menu .option.wins {
+	top: 5%;
+	left: 50%;
+	margin-left: -35px;
+}
+.play-menu .option.wins .matchesToWin {
+	font-size: 2em;
 	position: absolute;
-	top: 10px;
+	top: -5px;
+	left: 37%;
+	color: black;
+}
+.play-menu .option.sound {
+	top: 50%;
 	left: 5%;
-	background: url('/images/paper.png') no-repeat;
-	padding: 95px 100px 90px 165px;
-	width: 1120px;
+	margin-top: -35px;
 }
-#mapcontainer{
-	position: relative;
-	z-index: 100;
-}
-.destination {
-	display: none;
-	position: absolute;
-	top: 0px;
-	left: 0px;
-	background: rgba(0,0,0,0.5);
-	padding: 5px;
-	color: white;
-	border-radius: 5px;
-	z-index: 1000;
-}
-.screenshot {position: absolute; z-index: 1000;}
-.screenshot img {width: 1000px;}
-
-
