@@ -2,7 +2,7 @@ Physijs.scripts.worker = '/js/vendor/physijs_worker.js';
 Physijs.scripts.ammo = '/js/vendor/ammo.js';
 var clientClickX, clientClickY;
 var container = document.createElement('div');
-var camera, scene, renderer;
+var camera, scene, renderer, stats;
 var keyboard = new KeyboardState();
 var playerObj1;
 var playerObj2;
@@ -64,7 +64,7 @@ function init() {
 				x = (i + 1) * 50 - board.length * 50 / 2 - 25;
 				z = (j + 1) * 50 - board[i].length * 50 / 2 - 25;
 				y = yPosition;
-				spawnBox(crateTexture, x, y, z, false);
+				board[i][j] = spawnBox(crateTexture, x, y, z, false);
 			}
 			else if (board[i][j] == 2) { // solid block
 				fieldHeight = 50;
@@ -72,10 +72,11 @@ function init() {
 				x = (i + 1) * 50 - board.length * 50 / 2 - 25;
 				z = (j + 1) * 50 - board[i].length * 50 / 2 - 25;
 				y = yPosition;
-				spawnBox(solidBlockTexture, x, y, z, true);
+				board[i][j] = spawnBox(solidBlockTexture, x, y, z, true);
 			}
 		}
 	}
+	console.log(board);
 	// Arena walls
 	wallsTexture1 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	wallsTexture1.anisotropy = maxAnisotropy;
@@ -146,6 +147,10 @@ function init() {
 	renderer.shadowMapSoft = true; // to antialias the shadow
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	container.appendChild(renderer.domElement);
+	stats = new Stats();
+	stats.domElement.style.position = 'absolute';
+	stats.domElement.style.top = '0px';
+	container.appendChild( stats.domElement );
 	window.addEventListener('resize', onWindowResize, false);
 }
 function onWindowResize() {
@@ -157,9 +162,9 @@ function onWindowResize() {
 // ANIMATION                        //
 //////////////////////////////////////
 function animate() {
+	update();
 	requestAnimationFrame(animate);
 	render();
-	update();
 }
 function render() {
 	var seconds = Date.now() / 1000;
@@ -168,6 +173,7 @@ function render() {
 	light.position.y = 800;
 	light.position.z = Math.sin(piPerSeconds * 0.05) * 1000;
 	renderer.render(scene, camera);
+	stats.update();
 };
 function update() {
 	keyboard.update();
@@ -181,6 +187,9 @@ function update() {
 //////////////////////////////////////
 // HELPER FUNCTIONS                 //
 //////////////////////////////////////
+function getDistance(obj1, obj2){
+	return Math.floor(Math.sqrt(Math.pow(obj2.position.x - obj1.position.x, 2) + Math.pow(obj2.position.y - obj1.position.y, 2) + Math.pow(obj2.position.z - obj1.position.z, 2)));
+}
 function handleNotSolidBombs() {
 	// BOMBS BLOCKING BOX
 	notSolidBombs = $.grep(notSolidBombs, function (bomb, index) {
@@ -196,113 +205,116 @@ function handleNotSolidBombs() {
 		return true;
 	});
 }
-function getDistance(obj1, obj2){
-	return Math.floor(Math.sqrt(Math.pow(obj2.position.x - obj1.position.x, 2) + Math.pow(obj2.position.y - obj1.position.y, 2) + Math.pow(obj2.position.z - obj1.position.z, 2)));
-}
 function handlePowerUps() {
-	powerUps = $.grep(powerUps, function (value, index) {
-		// PowerUp Player 1
-		p1 = playerObj1.position.x;
-		p2 = playerObj1.position.y;
-		p3 = playerObj1.position.z;
-		q1 = value.position.x;
-		q2 = value.position.y;
-		q3 = value.position.z;
-		distance = Math.floor(Math.sqrt(Math.pow(q1 - p1, 2) + Math.pow(q2 - p2, 2) + Math.pow(q3 - p3, 2)));
-		if (distance <= 40) {
-			if (value.type == "range")
-				playerObj1.bombRange = playerObj1.bombRange + 2;
-			console.log('player 1 range: ' + playerObj1.bombRange);
-			scene.remove(value);
-			return false;
-		}
-		// PowerUp Player 2
-		p1 = playerObj2.position.x;
-		p2 = playerObj2.position.y;
-		p3 = playerObj2.position.z;
-		q1 = value.position.x;
-		q2 = value.position.y;
-		q3 = value.position.z;
-		distance = Math.floor(Math.sqrt(Math.pow(q1 - p1, 2) + Math.pow(q2 - p2, 2) + Math.pow(q3 - p3, 2)));
-		if (distance <= 40) {
-			if (value.type == "range")
-				playerObj2.bombRange = playerObj2.bombRange + 2;
-			console.log('palyer 2 range: ' + playerObj2.bombRange);
-			scene.remove(value);
-			return false;
-		}
-		return true;
+	powerUps = $.grep(powerUps, function (powerUp, index) {
+		pickedUpByP1 = collectPowerUp(playerObj1, powerUp);
+		pickedUpByP2 = collectPowerUp(playerObj2, powerUp);
+		if(pickedUpByP1 || pickedUpByP2) // if picked up by any player
+			return false; // remove the power up from the list
+		else return true; // else keep it in the list
 	});
+	function collectPowerUp(playerObj, powerUp){
+		distance = getDistance(playerObj, powerUp);
+		if (distance <= 40) {
+			if (powerUp.type == "range")
+				playerObj.bombRange = playerObj.bombRange + 2;
+			if (powerUp.type == "limit")
+				playerObj.bombLimit = playerObj.bombLimit + 1;
+			scene.remove(powerUp);
+			return true;
+		} else return false;
+	}
 }
 function handlePlayerMovement() {
-	if (playerObj1.isActive) {
-		//playerObj1.__dirtyPosition = true;
-		playerObj1.__dirtyRotation = true;
-		playerObj1.setAngularFactor({ x: 0, y: 0, z: 0 });
-		playerObj1.setLinearVelocity({ x: 0, y: 0, z: 0 });
-		playerObj1.setLinearFactor({ x: 1, y: 0, z: 1 });
-		playerObj1.position.y = 25;
-		// Player 1
-		s = playerObj1.speed; // speed for single direction
-		s2 = Math.sqrt(playerObj1.speed * playerObj1.speed / 2); // speed for diagonal direction
-		// diagonal
-		if (keyboard.pressed("A") && keyboard.pressed("W"))
-			playerObj1.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("A") && keyboard.pressed("S"))
-			playerObj1.setLinearVelocity({ x: -s2, y: 0, z: s2 });
-		else if (keyboard.pressed("D") && keyboard.pressed("W"))
-			playerObj1.setLinearVelocity({ x: s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("D") && keyboard.pressed("S"))
-			playerObj1.setLinearVelocity({ x: s2, y: 0, z: s2 });
+	if (playerObj1.isActive)
+		bindKeyboard(playerObj1, "W", "S", "A", "D", "shift")
+	if (playerObj2.isActive)
+		bindKeyboard(playerObj2, "up", "down", "left", "right", "space")
+	// to the movement of the player object
+	function bindKeyboard(playerObj, up, down, left, right, bomb){
+		playerObj.__dirtyPosition = true;
+		playerObj.__dirtyRotation = true;
+		playerObj.setAngularFactor({ x: 0, y: 0, z: 0 });
+		playerObj.setLinearVelocity({ x: 0, y: 0, z: 0 });
+		playerObj.setLinearFactor({ x: 1, y: 0, z: 1 });
+
+		collision = false;
+		nearObjects = getNearObjects(playerObj);
+		for (var vertexIndex = 0; vertexIndex < playerObj.geometry.vertices.length; vertexIndex++) {
+			var localVertex = playerObj.geometry.vertices[vertexIndex].clone();
+			var globalVertex = localVertex.applyMatrix4(playerObj.matrix);
+			var directionVector = globalVertex.sub( playerObj.position );
+
+			var ray = new THREE.Raycaster( playerObj.position, directionVector.clone().normalize() );
+			var collisionResults = ray.intersectObjects( nearObjects );
+			if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() ){
+				console.log('collision!');
+				collision = true;
+			}
+		}
+		if( !collision ){
+			// up, down, left, right
+			if (keyboard.pressed(left))
+				playerObj.position.x -= 5;
+			if (keyboard.pressed(right))
+				playerObj.position.x += 5;
+			if (keyboard.pressed(up))
+				playerObj.position.z -= 5;
+			if (keyboard.pressed(down))
+				playerObj.position.z += 5;
+			if (keyboard.down(bomb)) {
+				spawnBomb(playerObj);
+			}
+			if (keyboard.down("F")) {
+				position = getGridPosition(playerObj.position);
+				console.log(getNearObjects(playerObj));
+			}
+		} else {
+			// up, down, left, right
+			if (keyboard.pressed(left))
+				playerObj.position.x += 5;
+			if (keyboard.pressed(right))
+				playerObj.position.x -= 5;
+			if (keyboard.pressed(up))
+				playerObj.position.z += 5;
+			if (keyboard.pressed(down))
+				playerObj.position.z -= 5;
+			if (keyboard.down(bomb)) {
+				spawnBomb(playerObj);
+			}
+		}
+
+		/*
+		s = playerObj.speed; // speed for single direction
+		s2 = Math.sqrt(playerObj.speed * playerObj.speed / 2); // speed for diagonal direction
+		// diagonal movement
+		if (keyboard.pressed("left") && keyboard.pressed(up))
+			playerObj.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
+		else if (keyboard.pressed(left) && keyboard.pressed(down))
+			playerObj.setLinearVelocity({ x: -s2, y: 0, z: s2 });
+		else if (keyboard.pressed(right) && keyboard.pressed(up))
+			playerObj.setLinearVelocity({ x: s2, y: 0, z: -s2 });
+		else if (keyboard.pressed(right) && keyboard.pressed(down))
+			playerObj.setLinearVelocity({ x: s2, y: 0, z: s2 });
 		else {
 			// up, down, left, right
-			if (keyboard.pressed("A"))
-				playerObj1.setLinearVelocity({ x: -s, y: 0, z: 0 });
-			if (keyboard.pressed("D"))
-				playerObj1.setLinearVelocity({ x: s, y: 0, z: 0 });
-			if (keyboard.pressed("W"))
-				playerObj1.setLinearVelocity({ x: 0, y: 0, z: -s });
-			if (keyboard.pressed("S"))
-				playerObj1.setLinearVelocity({ x: 0, y: 0, z: s });
+			if (keyboard.pressed(left))
+				playerObj.setLinearVelocity({ x: -s, y: 0, z: 0 });
+			if (keyboard.pressed(right))
+				playerObj.setLinearVelocity({ x: s, y: 0, z: 0 });
+			if (keyboard.pressed(up))
+				playerObj.setLinearVelocity({ x: 0, y: 0, z: -s });
+			if (keyboard.pressed(down))
+				playerObj.setLinearVelocity({ x: 0, y: 0, z: s });
 		}
-		if (keyboard.down("shift")) {
-			spawnBomb(playerObj1);
+		if (keyboard.down(bomb)) {
+			spawnBomb(playerObj);
 		}
+		*/
 	}
-	if (playerObj2.isActive) {
-		//playerObj2.__dirtyPosition = true;
-		playerObj2.__dirtyRotation = true;
-		playerObj2.setAngularFactor({ x: 0, y: 0, z: 0 });
-		playerObj2.setLinearVelocity({ x: 0, y: 0, z: 0 });
-		playerObj2.setLinearFactor({ x: 1, y: 0, z: 1 });
-		playerObj2.position.y = 25;
-		// Player 2
-		s = playerObj2.speed; // speed for single direction
-		s2 = Math.sqrt(playerObj2.speed * playerObj2.speed / 2); // speed for diagonal direction
-		// diagonal
-		if (keyboard.pressed("left") && keyboard.pressed("up"))
-			playerObj2.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("left") && keyboard.pressed("down"))
-			playerObj2.setLinearVelocity({ x: -s2, y: 0, z: s2 });
-		else if (keyboard.pressed("right") && keyboard.pressed("up"))
-			playerObj2.setLinearVelocity({ x: s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("right") && keyboard.pressed("down"))
-			playerObj2.setLinearVelocity({ x: s2, y: 0, z: s2 });
-		else {
-			// up, down, left, right
-			if (keyboard.pressed("left"))
-				playerObj2.setLinearVelocity({ x: -s, y: 0, z: 0 });
-			if (keyboard.pressed("right"))
-				playerObj2.setLinearVelocity({ x: s, y: 0, z: 0 });
-			if (keyboard.pressed("up"))
-				playerObj2.setLinearVelocity({ x: 0, y: 0, z: -s });
-			if (keyboard.pressed("down"))
-				playerObj2.setLinearVelocity({ x: 0, y: 0, z: s });
-		}
-		if (keyboard.down("space")) {
-			spawnBomb(playerObj2);
-		}
-	}
+}
+function handleCollision(){
+	//console.log('collision');
 }
 function spawnPlayer(x, y, z, material, name) {
 	if (name == null || name == '') name = 'Player';
@@ -315,9 +327,9 @@ function spawnPlayer(x, y, z, material, name) {
 	playerObj.bombLimit = 1;
 	playerObj.activeBombs = 0;
 	playerObj.speed = 200;
-	playerObj.setLinearFactor(THREE.Vector3(0, 0, 0));
-	playerObj.setCcdMotionThreshold(100); // Enable CCD if the object moves more than 1 meter in one simulation frame
-	playerObj.setCcdSweptSphereRadius(1.2); // Set the radius of the embedded sphere such that it is smaller than the object
+	//playerObj.setLinearFactor(THREE.Vector3(0, 0, 0));
+	//playerObj.setCcdMotionThreshold(100); // Enable CCD if the object moves more than 1 meter in one simulation frame
+	//playerObj.setCcdSweptSphereRadius(1.2); // Set the radius of the embedded sphere such that it is smaller than the object
 	objects.push(playerObj);
 	scene.add(playerObj);
 	return playerObj;
@@ -351,7 +363,7 @@ function spawnBomb(playerObj) {
 		scene.add(bomb);
 		startBomb(bombIndex);
 		// make solid after player left object
-		notSolidBombs.push(bomb);
+		notSolidBombs.push(bomb); // FIXME Bug when bomb explodes but is not made solid yet?
 		playerObj.activeBombs++;
 	}
 }
@@ -394,7 +406,6 @@ function explosionRayCast(x, y, z, bomb) {
 	var raycaster = new THREE.Raycaster();
 	raycaster.ray.direction.set(x, y, z);
 	raycaster.ray.origin.set(bomb.position.x, 15, bomb.position.z);
-	var geometry = new THREE.Geometry();
 	var intersections = raycaster.intersectObjects(objects);
 	if (intersections.length > 0) {
 		var geometry = new THREE.Geometry();
@@ -418,49 +429,30 @@ function explosionRayCast(x, y, z, bomb) {
 		}
 		// DETONATION EFFECT
 		// fire variables
-		radius = 20;
-		var materialYellow = new THREE.MeshPhongMaterial({ color: 0xffff00, opacity: 0.3, blending: THREE.AdditiveBlending, transparent: true });
-		// fire effect 1
-		var fire1 = new THREE.Mesh(new THREE.SphereGeometry(radius, segments, rings), materialYellow);
-		fire1.position.x = bomb.position.x;
-		fire1.position.y = 20;
-		fire1.position.z = bomb.position.z;
-		fire1.castShadow = false;
-		//fire.scale.x = 10;
-		scene.add(fire1);
-		setTimeout(function () {
-			scene.remove(fire1);
-		}, 500);
-		var scale1 = { x: 1, y: 1, z: 1, opacity: 0.7 };
-		var target1 = { x: bomb.owner.bombRange, y: 1, z: 1, opacity: 0.2 };
-		var tween1 = new TWEEN.Tween(scale1).to(target1, 500);
-		tween1.start();
-		tween1.onUpdate(function () {
-			fire1.scale.x = scale1.x;
-			fire1.scale.y = scale1.y;
-			fire1.scale.z = scale1.z;
-			fire1.material.opacity = scale1.opacity;
-		});
-		// fire effect 2
-		var fire2 = new THREE.Mesh(new THREE.SphereGeometry(radius, segments, rings), materialYellow);
-		fire2.position.x = bomb.position.x;
-		fire2.position.y = 20;
-		fire2.position.z = bomb.position.z;
-		fire2.castShadow = false;
-		scene.add(fire2);
-		setTimeout(function () {
-			scene.remove(fire2);
-		}, 500);
-		var scale2 = { x: 1, y: 1, z: 1, opacity: 0.7 };
-		var target2 = { x: 1, y: 1, z: bomb.owner.bombRange, opacity: 0.0 };
-		var tween2 = new TWEEN.Tween(scale2).to(target2, 500);
-		tween2.start();
-		tween2.onUpdate(function () {
-			fire2.scale.x = scale2.x;
-			fire2.scale.y = scale2.y;
-			fire2.scale.z = scale2.z;
-			fire2.material.opacity = scale2.opacity;
-		});
+		fire1 = fire( { x: bomb.owner.bombRange, y: 1, z: 1, opacity: 0.2 } );
+		fire2 = fire( { x: 1, y: 1, z: bomb.owner.bombRange, opacity: 0.0 } );
+		function fire(target){
+			radius = 20;
+			var materialYellow = new THREE.MeshPhongMaterial({ color: 0xffff00, opacity: 0.3, blending: THREE.AdditiveBlending, transparent: true });
+			var fire = new THREE.Mesh(new THREE.SphereGeometry(radius, segments, rings), materialYellow);
+			fire.position.x = bomb.position.x;
+			fire.position.y = 20;
+			fire.position.z = bomb.position.z;
+			fire.castShadow = false;
+			scene.add(fire);
+			setTimeout(function () {
+				scene.remove(fire);
+			}, 500);
+			var scale = { x: 1, y: 1, z: 1, opacity: 0.7 };
+			var tween = new TWEEN.Tween(scale).to(target, 500);
+			tween.start();
+			tween.onUpdate(function () {
+				fire.scale.x = scale.x;
+				fire.scale.y = scale.y;
+				fire.scale.z = scale.z;
+				fire.material.opacity = scale.opacity;
+			});
+		}
 	}
 	// chain reaction for bombs
 	// TODO use objects array instead of separate bomb array to ensure only the first object (bomb/block/player) gets hit
@@ -487,7 +479,7 @@ function spawnBox(texture, x, y, z, solid) {
 	box.position.set(x, y, z);
 	box.castShadow = true;
 	box.solid = solid;
-	//box.addEventListener( 'collision', handleCollision );
+	box.addEventListener( 'collision', handleCollision );
 	//box.addEventListener( 'ready', spawnBox );
 	scene.add(box);
 	objects.push(box);
@@ -495,20 +487,53 @@ function spawnBox(texture, x, y, z, solid) {
 }
 
 function spawnPowerUp(x, y, z) {
-	// TODO more power up types (array) with different chances and effects
-	var material = new THREE.MeshLambertMaterial({ color: 0xFFFF00 });
-	var box = new THREE.Mesh(
-		new THREE.CubeGeometry(50, 50, 50),
-		material
-	);
+	var boxGeo = new THREE.CubeGeometry(50, 50, 50);
+	var box;
+	if( Math.random() > 0.5){
+		var material = new THREE.MeshLambertMaterial({ color: 0xFFFF00 });
+		box = new THREE.Mesh(boxGeo, material);
+		box.type = "range";
+	} else {
+		var material = new THREE.MeshLambertMaterial({ color: 0x0000FF });
+		box = new THREE.Mesh(boxGeo, material);
+		box.type = "limit";
+	}
 	box.position.set(x, y, z);
 	box.castShadow = true;
-	box.type = "range";
 	//box.addEventListener( 'collision', handleCollision );
 	//box.addEventListener( 'ready', spawnBox );
 	scene.add(box);
 	objects.push();
 	return box;
+}
+
+function getGridPosition(playerPosition){
+	x_grid = Math.floor( (playerPosition.x + (rows * 50 / 2)) / 50 );
+	z_grid = Math.floor( (playerPosition.z + (columns * 50 / 2)) / 50 );
+	position = {
+		x: x_grid,
+		z: z_grid
+	};
+	return position;
+}
+function getNearObjects(playerObj){
+	playerGridPosition = getGridPosition(playerObj.position);
+	x_min = playerGridPosition.x-1;
+	x_max = playerGridPosition.x+1;
+	z_min = playerGridPosition.z-1;
+	z_max = playerGridPosition.z+1;
+	if (x_min < 0) x_min = 0;
+	if (z_min < 0) z_min = 0;
+	if(x_max > rows-1) x_max = rows-1;
+	if(z_max > columns-1) z_max = columns-1;
+	nearObjects = [];
+	for(i=x_min; i<=x_max; i++){
+		for(j=z_min; j<=z_max; j++){
+			if( board[i][j] != 0 )
+				nearObjects.push(board[i][j]);
+		}
+	}
+	return nearObjects;
 }
 
 ////////////////////////////////////////////
