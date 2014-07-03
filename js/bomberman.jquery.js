@@ -1,8 +1,9 @@
 Physijs.scripts.worker = '../bomberman/js/vendor/physijs_worker.js';
-//Physijs.scripts.ammo = '../bomberman/js/vendor/ammo.js';
+Physijs.scripts.ammo = '../vendor/ammo.js';
+
 var clientClickX, clientClickY;
 var container = document.createElement('div');
-var camera, scene, renderer;
+var camera, scene, renderer, stats;
 var keyboard = new KeyboardState();
 var playerObj1;
 var playerObj2;
@@ -15,12 +16,12 @@ var light;
 var crateTexture;
 var board = [];
 var map = [];
-var rows = 19;
-var columns = 11;
+var rows = 11;
+var columns = 7;
 // standart sphere properties
 var radius = 23;
-var segments = 18;
-var rings = 18;
+var segments = 10;
+var rings = 10;
 
 $(document).ready(function () {
 	createMap();
@@ -77,6 +78,7 @@ function init() {
 		}
 	}
 	// Arena walls
+	/*
 	wallsTexture1 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	wallsTexture1.anisotropy = maxAnisotropy;
 	material1 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture1 }), 0, 0);
@@ -103,6 +105,7 @@ function init() {
 	rightBorder.position.set(rows * 50 / 2 + 25, 10, 0);
 	rightBorder.castShadow = true;
 	scene.add(rightBorder);
+	*/
 	//////////////////////////////////////
 	// PLAYERS                          //
 	//////////////////////////////////////
@@ -121,7 +124,9 @@ function init() {
 	//////////////////////////////////////
 	// LIGHT AND SHADOWS                //
 	//////////////////////////////////////
-	light = new THREE.SpotLight(0xffeeee, 1);
+	light = new THREE.SpotLight(0xffeeee, 2);
+	light.position = {x:0, y: 800, z:0};
+	/*
 	// shadow camera
 	//light.shadowCameraVisible = true;
 	light.shadowCameraRight = 1300;
@@ -136,6 +141,7 @@ function init() {
 	light.shadowDarkness = 0.4;
 	light.shadowMapWidth = 4096; // default is 512
 	light.shadowMapHeight = 4096; // default is 512
+	*/
 	scene.add(light);
 
 	//////////////////////////////////////
@@ -146,7 +152,15 @@ function init() {
 	renderer.shadowMapSoft = true; // to antialias the shadow
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	container.appendChild(renderer.domElement);
+	stats = new Stats();
+	stats.domElement.style.position = 'absolute';
+	stats.domElement.style.top = '0px';
+	container.appendChild( stats.domElement );
 	window.addEventListener('resize', onWindowResize, false);
+
+	// temp
+	s2 = 3;
+	playerObj1.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
 }
 function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -162,21 +176,22 @@ function animate() {
 	update();
 }
 function render() {
-	var seconds = Date.now() / 1000;
-	var piPerSeconds = seconds * Math.PI;
-	light.position.x = Math.cos(piPerSeconds * 0.05) * 1000;
-	light.position.y = 800;
-	light.position.z = Math.sin(piPerSeconds * 0.05) * 1000;
+	//var seconds = Date.now() / 1000;
+	//var piPerSeconds = seconds * Math.PI;
+	//light.position.x = Math.cos(piPerSeconds * 0.05) * 1000;
+	//light.position.y = 800;
+	//light.position.z = Math.sin(piPerSeconds * 0.05) * 1000;
 	renderer.render(scene, camera);
+	stats.update();
 };
 function update() {
 	keyboard.update();
-	handlePlayerMovement();
-	handleNotSolidBombs();
-	handlePowerUps();
+	//handleNotSolidBombs();
+	//handlePowerUps();
 	scene.simulate();
 	controls.update();
-	TWEEN.update();
+	//TWEEN.update();
+	handlePlayerMovement();
 }
 //////////////////////////////////////
 // HELPER FUNCTIONS                 //
