@@ -1,5 +1,5 @@
-Physijs.scripts.worker = '/js/vendor/physijs_worker.js';
-Physijs.scripts.ammo = '/js/vendor/ammo.js';
+Physijs.scripts.worker = '../bomberman/js/vendor/physijs_worker.js';
+//Physijs.scripts.ammo = '../bomberman/js/vendor/ammo.js';
 var clientClickX, clientClickY;
 var container = document.createElement('div');
 var camera, scene, renderer;
