@@ -7,7 +7,7 @@
 		<script src="js/vendor/three.min.js"></script>
 		<script src="js/vendor/OrbitControls.js"></script>
 		<script src="js/vendor/tween.min.js"></script>
-		<script src="js/vendor/physi.js"></script>
+		<script src="js/vendor/cannon.min.js"></script>
 		<script src="js/vendor/keyboardstate.js"></script>
 		<script src="js/vendor/stats.min.js"></script>
 		

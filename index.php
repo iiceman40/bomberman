@@ -14,6 +14,24 @@
 		<link rel="stylesheet" type="text/css" href="css/style.css" />
 	</head>
 	<body>
+		<div class="bg-font-wrapper">
+			<div class="bg-font bg-font1">
+				<span>Angry</span><span>Cute</span><span>Weird</span><span>Sad</span>
+				<span>Angry</span><span>Cute</span><span>Weird</span><span>Sad</span>
+				<span>Angry</span><span>Cute</span><span>Weird</span><span>Sad</span>
+			</div>
+			<div class="bg-font bg-font2">
+				<span>Cute</span><span>Weird</span><span>Angry</span><span>Sad</span>
+				<span>Cute</span><span>Weird</span><span>Angry</span><span>Sad</span>
+				<span>Cute</span><span>Weird</span><span>Angry</span><span>Sad</span>
+			</div>
+			<div class="bg-font bg-font3">
+				<span>Sad</span><span>Angry</span><span>Weird</span><span>Cute</span>
+				<span>Sad</span><span>Angry</span><span>Weird</span><span>Cute</span>
+				<span>Sad</span><span>Angry</span><span>Weird</span><span>Cute</span>
+			</div>
+		</div>
+
 		<div class="container">
 			<div class="row">
 				<div class="col-sm-12">

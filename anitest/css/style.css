@@ -1,0 +1,157 @@
+body {
+	margin: 0px;
+}
+button, .btn {
+	outline: none;
+}
+h1 {
+	text-shadow: 2px 2px 0px #202020, -2px 0px 0px #606060;
+	color: #505050;
+	font-size: 5em;
+	font-weight: bold;
+	text-align: center;
+}
+h1 small {
+	font-size: 0.4em;
+}
+
+.hidden {
+	display:none;
+}
+.align-center{
+	text-align: center;
+}
+.full-width {
+	width: 90%;
+}
+
+.player {
+	height:42%;
+}
+.playerBtn {
+	height: 95%;
+	width: 100%;
+}
+.player0 .playerBtn {
+	-webkit-border-radius: 10% 0 0 0;
+}
+.player1 .playerBtn {
+	-webkit-border-radius: 0 10% 0 0;
+}
+.player2 .playerBtn {
+	-webkit-border-radius: 0 0 0 10%;
+}
+.player3 .playerBtn {
+	-webkit-border-radius: 0 0 10% 0;
+}
+.playerBtn .glyphicon {
+	font-size: 20em;
+	color: #404040;
+}
+
+.bman-head {
+	height: 80%;
+	margin-top: -10%
+}
+
+.playerName {
+	position: absolute;
+	z-index: 0;
+	width: 30%;
+	bottom: 10%;
+	left: 35%;
+	text-align: center;
+}
+.login {
+	display: block;
+	position: absolute;
+	z-index: 0;
+	bottom: 11%;
+	left: 28%;
+	font-size: 2em;
+}
+
+.play-button {
+	height: 300px;
+	width: 300px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin-top: -150px;
+	margin-left: -150px;
+	-webkit-border-radius: 50%;
+	background: #e570e7; /* Old browsers */
+	background: -moz-linear-gradient(top,  #e570e7 0%, #c85ec7 47%, #a849a3 100%); /* FF3.6+ */
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#e570e7), color-stop(47%,#c85ec7), color-stop(100%,#a849a3)); /* Chrome,Safari4+ */
+	background: -webkit-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* Chrome10+,Safari5.1+ */
+	background: -o-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* Opera 11.10+ */
+	background: -ms-linear-gradient(top,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* IE10+ */
+	background: linear-gradient(to bottom,  #e570e7 0%,#c85ec7 47%,#a849a3 100%); /* W3C */
+	filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#e570e7', endColorstr='#a849a3',GradientType=0 ); /* IE6-9 */
+	border: 2px solid purple;
+	padding: 0px 0 0 20px;
+	text-align: center;
+}
+.play-button:hover {
+	background: purple;
+}
+.play-button .glyphicon {
+	font-size: 15em;
+	color: #660066;
+	text-shadow: 2px 1px #bb99bb, -2px -1px #440044;
+	-webkit-transition: font-size 0.7s, color 1s, text-shadow 1s;
+}
+.play-button:hover .glyphicon {
+	font-size: 15.5em;
+	color: #ee99ee;
+	text-shadow: 2px 1px #ffeeff, -2px -1px #aa77aa;
+}
+.play-menu {
+	height: 300px;
+	width: 300px;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	margin-top: -150px;
+	margin-left: -150px;
+	background: rgba(0,0,0,0.7);
+	-webkit-border-radius: 50%;
+	-webkit-transition: width 1s, height 1s, margin-top 1s, margin-left 1s;
+}
+.play-menu:hover {
+	height: 600px;
+	width: 600px;
+	margin-top: -300px;
+	margin-left: -300px;
+	z-index: 5;
+}
+#startGame button {
+	text-shadow: -1px -1px #000000, 1px 1px #dd66dd;
+	z-index: 20;
+}
+
+.play-menu .option {
+	position: absolute;
+	cursor: pointer;
+	z-index: 10;
+}
+.play-menu .option .glyphicon {
+	font-size: 5em;
+}
+.play-menu .option.wins {
+	top: 5%;
+	left: 50%;
+	margin-left: -35px;
+}
+.play-menu .option.wins .matchesToWin {
+	font-size: 2em;
+	position: absolute;
+	top: -5px;
+	left: 37%;
+	color: black;
+}
+.play-menu .option.sound {
+	top: 50%;
+	left: 5%;
+	margin-top: -35px;
+}

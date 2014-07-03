@@ -1,3 +1,26 @@
+.bg-font-wrapper {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
+}
+.bg-font {
+	color: #aaa;
+	font-size: 45em;
+	font-weight: bold;
+	line-height: 0.5em;
+	opacity: 0.1;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+.bg-font span {
+	display: inline-block;
+}
+
 body {
 	margin: 0px;
 }

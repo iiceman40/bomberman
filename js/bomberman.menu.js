@@ -10,6 +10,17 @@ $(document).ready(function(){
 		container: "body"
 	});
 
+	$('.bg-font1').animate({
+		'margin-left': '-6000px'
+	}, 100000, "linear");
+	$('.bg-font2').css('margin-left','-6000px').animate({
+		'margin-left': '0px'
+	}, 100000, "linear");
+	$('.bg-font3').animate({
+		'margin-left': '-6000px'
+	}, 120000, "linear");
+	// TODO find a nice way to loop/reset the animation
+
 	/*
 	 * View Model
 	 */
