@@ -1,12 +1,12 @@
 Physijs.scripts.worker = '../bomberman/js/vendor/physijs_worker.js';
 Physijs.scripts.ammo = '../vendor/ammo.js';
 
-var clientClickX, clientClickY;
 var container = document.createElement('div');
 var camera, scene, renderer, stats;
 var keyboard = new KeyboardState();
 var playerObj1;
 var playerObj2;
+var players = [];
 var maxAnisotropy = 16;
 var objects = [];
 var notSolidBombs = [];
@@ -16,17 +16,18 @@ var light;
 var crateTexture;
 var board = [];
 var map = [];
-var rows = 11;
-var columns = 7;
+var rows = 17;
+var columns = 11;
 // standart sphere properties
-var radius = 23;
-var segments = 10;
-var rings = 10;
+var radius = 20;
+var segments = 16;
+var rings = 32;
 
 $(document).ready(function () {
 	createMap();
 	init();
 	animate();
+	gameStep();
 });
 //////////////////////////////////////
 // MAIN FUNCTIONS                   //
@@ -42,6 +43,7 @@ function init() {
 	camera.lookAt(scene.position);
 	// Controls
 	controls = new THREE.OrbitControls(camera);
+
 	// Materials
 	crate2Texture = new THREE.ImageUtils.loadTexture("textures/crate2.jpg");
 	crate2Texture.wrapS = crate2Texture.wrapT = THREE.RepeatWrapping;
@@ -51,12 +53,13 @@ function init() {
 	crateTexture.anisotropy = maxAnisotropy;
 	solidBlockTexture = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	solidBlockTexture.anisotropy = maxAnisotropy;
-	materialFloor = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crate2Texture }), .9, .0);
-	materialWall = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crateTexture }), .9, .0);
+	materialFloor = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crate2Texture }), .0, .0);
+	materialWall = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crateTexture }), .0, .0);
 	// Build plane
 	plane = new Physijs.BoxMesh(new THREE.CubeGeometry(rows * 50, 1, columns * 50), materialFloor, 0); // geometry, material, mass
 	plane.position.y = -1;
 	scene.add(plane);
+	// add boxes
 	for (i = 0; i < board.length; i++) {
 		for (j = 0; j < board[i].length; j++) {
 			if (board[i][j] == 1) { // normal block
@@ -77,8 +80,8 @@ function init() {
 			}
 		}
 	}
+
 	// Arena walls
-	/*
 	wallsTexture1 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	wallsTexture1.anisotropy = maxAnisotropy;
 	material1 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture1 }), 0, 0);
@@ -105,28 +108,45 @@ function init() {
 	rightBorder.position.set(rows * 50 / 2 + 25, 10, 0);
 	rightBorder.castShadow = true;
 	scene.add(rightBorder);
-	*/
 	//////////////////////////////////////
 	// PLAYERS                          //
 	//////////////////////////////////////
 	// Create the sprite
-	//var playerTexture = THREE.ImageUtils.loadTexture('/images/bman_v2.svg');
-	//var playerMaterial = new THREE.SpriteMaterial({ map: playerTexture, useScreenCoordinates: true  });
-	//var sprite = new THREE.Sprite(playerMaterial);
-	//sprite.scale.set(51, 60.7, 1); // imageWidth, imageHeight
-	//sprite.position.set(0, 50, 0);
-	//scene.add(sprite);
+	/*
+	var playerTexture = THREE.ImageUtils.loadTexture('/images/bman_v2.svg');
+	var playerMaterial = new THREE.SpriteMaterial({ map: playerTexture, useScreenCoordinates: true  });
+	var sprite = new THREE.Sprite(playerMaterial);
+	sprite.scale.set(51, 60.7, 1); // imageWidth, imageHeight
+	sprite.position.set(0, 50, 0);
+	scene.add(sprite);
+	*/
 	var materialBlue = Physijs.createMaterial(new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 100.0 }), .0, .0);
 	var materialRed = Physijs.createMaterial(new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100.0 }), .0, .0);
 	playerObj1 = spawnPlayer(rows * -25 + 25, 25, columns * -25 + 25, materialBlue, 'Player1');
+	playerObj1.controls = {
+		up:     "W",
+		down:   "S",
+		left:   "A",
+		right:  "D",
+		bomb:   "shift"
+	};
+	players.push(playerObj1);
+
 	playerObj2 = spawnPlayer(rows * 25 - 25, 25, columns * 25 - 25, materialRed, 'Player2');
+	playerObj2.controls = {
+		up:     "up",
+		down:   "down",
+		left:   "left",
+		right:  "right",
+		bomb:   "space"
+	};
+	players.push(playerObj2);
 
 	//////////////////////////////////////
 	// LIGHT AND SHADOWS                //
 	//////////////////////////////////////
-	light = new THREE.SpotLight(0xffeeee, 2);
+	light = new THREE.SpotLight(0xffeeee, 1);
 	light.position = {x:0, y: 800, z:0};
-	/*
 	// shadow camera
 	//light.shadowCameraVisible = true;
 	light.shadowCameraRight = 1300;
@@ -141,7 +161,6 @@ function init() {
 	light.shadowDarkness = 0.4;
 	light.shadowMapWidth = 4096; // default is 512
 	light.shadowMapHeight = 4096; // default is 512
-	*/
 	scene.add(light);
 
 	//////////////////////////////////////
@@ -158,9 +177,14 @@ function init() {
 	container.appendChild( stats.domElement );
 	window.addEventListener('resize', onWindowResize, false);
 
-	// temp
-	s2 = 3;
-	playerObj1.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
+	// temp TODO
+	//playerObj1.applyCentralImpulse(new THREE.Vector3(1000, 0, 0));
+	//playerObj1.applyCentralForce(new THREE.Vector3(1000, 0, 0));
+	var a = new THREE.Vector3( 1, 0, 0 );
+	var b = new THREE.Vector3( 0, 1, 0 );
+
+	var c = new THREE.Vector3();
+	console.log(a.add( b ));
 }
 function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -175,27 +199,35 @@ function animate() {
 	render();
 	update();
 }
+function gameStep() {
+	keyboard.update();
+	handlePlayerMovement();
+	scene.simulate(); // run physics
+
+	// when moving, process the game logic at a target 60 FPS
+	setTimeout(gameStep, 1000/60/5);
+}
 function render() {
-	//var seconds = Date.now() / 1000;
-	//var piPerSeconds = seconds * Math.PI;
-	//light.position.x = Math.cos(piPerSeconds * 0.05) * 1000;
-	//light.position.y = 800;
-	//light.position.z = Math.sin(piPerSeconds * 0.05) * 1000;
+	var seconds = Date.now() / 1000;
+	var piPerSeconds = seconds * Math.PI;
+	light.position.x = Math.cos(piPerSeconds * 0.05) * 1000;
+	light.position.y = 800;
+	light.position.z = Math.sin(piPerSeconds * 0.05) * 1000;
 	renderer.render(scene, camera);
 	stats.update();
 };
 function update() {
-	keyboard.update();
-	//handleNotSolidBombs();
-	//handlePowerUps();
-	scene.simulate();
+	handleNotSolidBombs();
+	handlePowerUps();
 	controls.update();
-	//TWEEN.update();
-	handlePlayerMovement();
 }
-//////////////////////////////////////
-// HELPER FUNCTIONS                 //
-//////////////////////////////////////
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// HELPER FUNCTIONS                                                                                                                                   //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 function handleNotSolidBombs() {
 	// BOMBS BLOCKING BOX
 	notSolidBombs = $.grep(notSolidBombs, function (bomb, index) {
@@ -203,7 +235,7 @@ function handleNotSolidBombs() {
 		distanceP2 = getDistance(playerObj2, bomb);
 		if (distanceP1 >= 40 && distanceP2 >= 40) {
 			material = Physijs.createMaterial(new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.5 }), 0, 0);
-			bomb.box = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 20, 50), material, 9999999999);
+			bomb.box = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 20, 50), material, 0);
 			bomb.box.position = bomb.position;
 			scene.add(bomb.box);
 			return false;
@@ -250,78 +282,49 @@ function handlePowerUps() {
 	});
 }
 function handlePlayerMovement() {
-	if (playerObj1.isActive) {
-		//playerObj1.__dirtyPosition = true;
-		playerObj1.__dirtyRotation = true;
-		playerObj1.setAngularFactor({ x: 0, y: 0, z: 0 });
-		playerObj1.setLinearVelocity({ x: 0, y: 0, z: 0 });
-		playerObj1.setLinearFactor({ x: 1, y: 0, z: 1 });
-		playerObj1.position.y = 25;
-		// Player 1
-		s = playerObj1.speed; // speed for single direction
-		s2 = Math.sqrt(playerObj1.speed * playerObj1.speed / 2); // speed for diagonal direction
-		// diagonal
-		if (keyboard.pressed("A") && keyboard.pressed("W"))
-			playerObj1.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("A") && keyboard.pressed("S"))
-			playerObj1.setLinearVelocity({ x: -s2, y: 0, z: s2 });
-		else if (keyboard.pressed("D") && keyboard.pressed("W"))
-			playerObj1.setLinearVelocity({ x: s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("D") && keyboard.pressed("S"))
-			playerObj1.setLinearVelocity({ x: s2, y: 0, z: s2 });
-		else {
-			// up, down, left, right
-			if (keyboard.pressed("A"))
-				playerObj1.setLinearVelocity({ x: -s, y: 0, z: 0 });
-			if (keyboard.pressed("D"))
-				playerObj1.setLinearVelocity({ x: s, y: 0, z: 0 });
-			if (keyboard.pressed("W"))
-				playerObj1.setLinearVelocity({ x: 0, y: 0, z: -s });
-			if (keyboard.pressed("S"))
-				playerObj1.setLinearVelocity({ x: 0, y: 0, z: s });
-		}
-		if (keyboard.down("shift")) {
-			spawnBomb(playerObj1);
-		}
-	}
-	if (playerObj2.isActive) {
-		//playerObj2.__dirtyPosition = true;
-		playerObj2.__dirtyRotation = true;
-		playerObj2.setAngularFactor({ x: 0, y: 0, z: 0 });
-		playerObj2.setLinearVelocity({ x: 0, y: 0, z: 0 });
-		playerObj2.setLinearFactor({ x: 1, y: 0, z: 1 });
-		playerObj2.position.y = 25;
-		// Player 2
-		s = playerObj2.speed; // speed for single direction
-		s2 = Math.sqrt(playerObj2.speed * playerObj2.speed / 2); // speed for diagonal direction
-		// diagonal
-		if (keyboard.pressed("left") && keyboard.pressed("up"))
-			playerObj2.setLinearVelocity({ x: -s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("left") && keyboard.pressed("down"))
-			playerObj2.setLinearVelocity({ x: -s2, y: 0, z: s2 });
-		else if (keyboard.pressed("right") && keyboard.pressed("up"))
-			playerObj2.setLinearVelocity({ x: s2, y: 0, z: -s2 });
-		else if (keyboard.pressed("right") && keyboard.pressed("down"))
-			playerObj2.setLinearVelocity({ x: s2, y: 0, z: s2 });
-		else {
-			// up, down, left, right
-			if (keyboard.pressed("left"))
-				playerObj2.setLinearVelocity({ x: -s, y: 0, z: 0 });
-			if (keyboard.pressed("right"))
-				playerObj2.setLinearVelocity({ x: s, y: 0, z: 0 });
-			if (keyboard.pressed("up"))
-				playerObj2.setLinearVelocity({ x: 0, y: 0, z: -s });
-			if (keyboard.pressed("down"))
-				playerObj2.setLinearVelocity({ x: 0, y: 0, z: s });
-		}
-		if (keyboard.down("space")) {
-			spawnBomb(playerObj2);
+	for(i=0;i<players.length;i++){
+		player = players[i];
+		con = player.controls;
+		if (player.isActive) {
+			player.setAngularFactor(new THREE.Vector3(0,0,0));
+			player.setLinearVelocity(new THREE.Vector3(0,0,0));
+			player.setLinearFactor(new THREE.Vector3(1,0,1));
+			player.position.y = 25;
+			// Player 1
+			s = player.speed; // speed for single direction
+			s2 = Math.sqrt(player.speed * player.speed / 2); // speed for diagonal direction
+			// diagonal
+			//player.applyCentralImpulse(new THREE.Vector3(1000, 0, 0));
+			if (keyboard.pressed(con.left) && keyboard.pressed(con.up))
+				player.applyCentralImpulse(new THREE.Vector3(-s2, 0, -s2));
+			else if (keyboard.pressed(con.left) && keyboard.pressed(con.down))
+				player.applyCentralImpulse(new THREE.Vector3(-s2, 0, s2));
+			else if (keyboard.pressed(con.right) && keyboard.pressed(con.up))
+				player.applyCentralImpulse(new THREE.Vector3(s2, 0, -s2));
+			else if (keyboard.pressed(con.right) && keyboard.pressed(con.down))
+				player.applyCentralImpulse(new THREE.Vector3(s2, 0, s2));
+			else {
+				// up, down, left, right
+				if (keyboard.pressed(con.left))
+					player.applyCentralImpulse(new THREE.Vector3(-s, 0, 0));
+				if (keyboard.pressed(con.right))
+					player.applyCentralImpulse(new THREE.Vector3(s, 0, 0));
+				if (keyboard.pressed(con.up))
+					player.applyCentralImpulse(new THREE.Vector3(0, 0, -s));
+				if (keyboard.pressed(con.down))
+					player.applyCentralImpulse(new THREE.Vector3(0, 0, s));
+			}
+
+			if (keyboard.down("shift")) {
+				spawnBomb(player);
+			}
 		}
 	}
 }
+
 function spawnPlayer(x, y, z, material, name) {
 	if (name == null || name == '') name = 'Player';
-	playerObj = new Physijs.SphereMesh(new THREE.SphereGeometry(radius, segments, rings), material, 10000);
+	playerObj = new Physijs.SphereMesh(new THREE.SphereGeometry(radius, segments, rings), material, 1);
 	playerObj.position.set(x, y, z);
 	playerObj.castShadow = true;
 	playerObj.playerName = name;
@@ -490,13 +493,13 @@ function explosionRayCast(x, y, z, bomb) {
 function spawnBox(texture, x, y, z, solid) {
 	var material = Physijs.createMaterial(
 		new THREE.MeshLambertMaterial({ map: texture }),
-		.6, // medium friction
+		.0, // medium friction
 		.0 // low restitution
 	);
 	var box = new Physijs.BoxMesh(
-		new THREE.CubeGeometry(50, 20, 50),
+		new THREE.CubeGeometry(50, 30, 50),
 		material,
-		99999999 // mass: 0 = infinite
+		0 // mass: 0 = infinite
 	);
 	box.collisions = 0;
 	box.position.set(x, y, z);
