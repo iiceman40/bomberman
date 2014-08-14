@@ -11,7 +11,7 @@ var maxAnisotropy = 16;
 var objects = [];
 var notSolidBombs = [];
 var bombs = [];
-var powerUps = [];
+var activePowerUps = [];
 var light;
 var crateTexture;
 var board = [];
@@ -19,16 +19,47 @@ var map = [];
 var rows = 17;
 var columns = 11;
 // standart sphere properties
-var radius = 20;
-var segments = 16;
+var radius = 23;
+var segments = 32;
 var rings = 32;
+var wallHeight = 50;
+
+var options = {
+	bumpmapping: true
+}
+
+fireTexture = new THREE.ImageUtils.loadTexture("textures/clean-fire.svg");
+bombTexture = new THREE.ImageUtils.loadTexture("textures/bomb.svg");
+
+var powerUpTypes = [
+	{
+		name:       'range',
+		material:   new THREE.MeshPhongMaterial({ color: 0xFFFF00, shininess: 100.0, map: fireTexture }),
+		chance:     1,
+		effect: function(player){
+			player.bombRange = player.bombRange * 2;
+			console.log('range improoved to: ', player.bombRange);
+		}
+	},
+	{
+		name:       'limit',
+		material:   new THREE.MeshPhongMaterial({ color: 0x0000FF, shininess: 100.0, map: bombTexture }),
+		chance:     1,
+		effect: function(player){
+			player.bombLimit++;
+			console.log('limit improoved to: ', player.bombLimit);
+		}
+	}
+]
+
 
 $(document).ready(function () {
 	createMap();
 	init();
 	animate();
-	gameStep();
 });
+
+
 //////////////////////////////////////
 // MAIN FUNCTIONS                   //
 //////////////////////////////////////
@@ -39,7 +70,7 @@ function init() {
 	scene.setGravity(new THREE.Vector3(0, -30, 0));
 	// Camera
 	camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 10000);
-	camera.position.set(0, 730, 1); // y = 430
+	camera.position.set(0, 600, 1); // y = 430
 	camera.lookAt(scene.position);
 	// Controls
 	controls = new THREE.OrbitControls(camera);
@@ -49,15 +80,24 @@ function init() {
 	crate2Texture.wrapS = crate2Texture.wrapT = THREE.RepeatWrapping;
 	crate2Texture.repeat.set(rows, columns);
 	crate2Texture.anisotropy = maxAnisotropy;
+
 	crateTexture = new THREE.ImageUtils.loadTexture("textures/crate.jpg");
 	crateTexture.anisotropy = maxAnisotropy;
+	if(options.bumpmapping)
+		crateTextureBump = new THREE.ImageUtils.loadTexture("textures/crate_bump.jpg");
+
 	solidBlockTexture = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	solidBlockTexture.anisotropy = maxAnisotropy;
+	if(options.bumpmapping)
+		solidBlockTextureBump = new THREE.ImageUtils.loadTexture("textures/cobble_cut_bump.jpg");
+
 	materialFloor = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crate2Texture }), .0, .0);
 	materialWall = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: crateTexture }), .0, .0);
-	// Build plane
-	plane = new Physijs.BoxMesh(new THREE.CubeGeometry(rows * 50, 1, columns * 50), materialFloor, 0); // geometry, material, mass
+
+	// build plane
+	plane = new Physijs.BoxMesh(new THREE.BoxGeometry(rows * 50, 1, columns * 50), materialFloor, 0); // geometry, material, mass
 	plane.position.y = -1;
+	plane.receiveShadow = true;
 	scene.add(plane);
 	// add boxes
 	for (i = 0; i < board.length; i++) {
@@ -68,7 +108,7 @@ function init() {
 				x = (i + 1) * 50 - board.length * 50 / 2 - 25;
 				z = (j + 1) * 50 - board[i].length * 50 / 2 - 25;
 				y = yPosition;
-				spawnBox(crateTexture, x, y, z, false);
+				spawnBox(crateTexture, x, y, z, false, (options.bumpmapping)?crateTextureBump:false);
 			}
 			else if (board[i][j] == 2) { // solid block
 				fieldHeight = 50;
@@ -76,7 +116,7 @@ function init() {
 				x = (i + 1) * 50 - board.length * 50 / 2 - 25;
 				z = (j + 1) * 50 - board[i].length * 50 / 2 - 25;
 				y = yPosition;
-				spawnBox(solidBlockTexture, x, y, z, true);
+				spawnBox(solidBlockTexture, x, y, z, true, (options.bumpmapping)?solidBlockTextureBump:false);
 			}
 		}
 	}
@@ -84,43 +124,77 @@ function init() {
 	// Arena walls
 	wallsTexture1 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	wallsTexture1.anisotropy = maxAnisotropy;
-	material1 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture1 }), 0, 0);
+	material1 = Physijs.createMaterial(new THREE.MeshPhongMaterial({ map: wallsTexture1, bumpMap: (options.bumpmapping)?solidBlockTextureBump:false }), 0, 0);
 	material1.map.wrapS = material1.map.wrapT = THREE.RepeatWrapping;
 	material1.map.repeat.set(rows, 1);
-	topBorder = new Physijs.BoxMesh(new THREE.CubeGeometry(rows * 50, 20, 50), material1, 0);
-	topBorder.position.set(0, 10, -columns * 50 / 2 - 25);
+	if(options.bumpmapping){
+		material1.bumpMap.wrapS = material1.bumpMap.wrapT = THREE.RepeatWrapping;
+		material1.bumpMap.repeat.set(rows, 1);
+	}
+
+	topBorder = new Physijs.BoxMesh(new THREE.BoxGeometry(rows * 50, wallHeight, 50), material1, 0);
+	topBorder.position.set(0, wallHeight/2, -columns * 50 / 2 - 25);
 	topBorder.castShadow = true;
 	scene.add(topBorder);
-	bottomBorder = new Physijs.BoxMesh(new THREE.CubeGeometry(rows * 50, 20, 50), material1, 0);
-	bottomBorder.position.set(0, 10, columns * 50 / 2 + 25);
+	bottomBorder = new Physijs.BoxMesh(new THREE.BoxGeometry(rows * 50, wallHeight, 50), material1, 0);
+	bottomBorder.position.set(0, wallHeight/2, columns * 50 / 2 + 25);
 	bottomBorder.castShadow = true;
 	scene.add(bottomBorder);
+
 	wallsTexture2 = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
 	wallsTexture2.anisotropy = maxAnisotropy;
-	material2 = Physijs.createMaterial(new THREE.MeshLambertMaterial({ map: wallsTexture2 }), 0, 0);
+	material2 = Physijs.createMaterial(new THREE.MeshPhongMaterial({ map: wallsTexture2, bumpMap: (options.bumpmapping)?solidBlockTextureBump:false }), 0, 0);
 	material2.map.wrapS = material2.map.wrapT = THREE.RepeatWrapping;
-	material2.map.repeat.set(1, columns + 2);
-	leftBorder = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 20, (columns + 2) * 50), material2, 0);
-	leftBorder.position.set(-rows * 50 / 2 - 25, 10, 0);
+	material2.map.repeat.set(1, columns);
+	if(options.bumpmapping){
+		material2.bumpMap.wrapS = material2.bumpMap.wrapT = THREE.RepeatWrapping;
+		material2.bumpMap.repeat.set(1, columns + 2);
+	}
+
+	wallsTexture2b = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
+	wallsTexture2b.anisotropy = maxAnisotropy;
+	material2b = Physijs.createMaterial(new THREE.MeshPhongMaterial({ map: wallsTexture2b, bumpMap: (options.bumpmapping)?solidBlockTextureBump:false }), 0, 0); // todo fix bumpmapping
+	material2b.map.wrapS = material2b.map.wrapT = THREE.RepeatWrapping;
+	material2b.map.repeat.set(rows, 1);
+
+	wallsTexture = new THREE.ImageUtils.loadTexture("textures/cobble_cut.jpg");
+	wallsTexture.anisotropy = maxAnisotropy;
+	material = Physijs.createMaterial(new THREE.MeshPhongMaterial({ map: wallsTexture, bumpMap: (options.bumpmapping)?solidBlockTextureBump:false }), 0, 0);
+
+	materials = new THREE.MeshFaceMaterial([
+		material1, // rechts
+		material2b, // links
+		material2, //oben
+		material2b, // unten
+		material, // vorn
+		material // hinten
+	]);
+
+	leftBorder = new Physijs.BoxMesh( new THREE.BoxGeometry(50, wallHeight, (columns + 2) * 50 ), materials, 0 );
+	leftBorder.position.set(-rows * 50 / 2 - 25, wallHeight/2, 0);
 	leftBorder.castShadow = true;
 	scene.add(leftBorder);
-	rightBorder = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 20, (columns + 2) * 50), material2, 0);
-	rightBorder.position.set(rows * 50 / 2 + 25, 10, 0);
+
+	rightBorder = new Physijs.BoxMesh( new THREE.BoxGeometry(50, wallHeight, (columns + 2) * 50 ), materials, 0 );
+	rightBorder.position.set(rows * 50 / 2 + 25, wallHeight/2, 0);
 	rightBorder.castShadow = true;
 	scene.add(rightBorder);
+
 	//////////////////////////////////////
 	// PLAYERS                          //
 	//////////////////////////////////////
 	// Create the sprite
 	/*
-	var playerTexture = THREE.ImageUtils.loadTexture('/images/bman_v2.svg');
-	var playerMaterial = new THREE.SpriteMaterial({ map: playerTexture, useScreenCoordinates: true  });
-	var sprite = new THREE.Sprite(playerMaterial);
-	sprite.scale.set(51, 60.7, 1); // imageWidth, imageHeight
-	sprite.position.set(0, 50, 0);
-	scene.add(sprite);
-	*/
-	var materialBlue = Physijs.createMaterial(new THREE.MeshPhongMaterial({ color: 0x0000ff, shininess: 100.0 }), .0, .0);
+	 var playerTexture = THREE.ImageUtils.loadTexture('/images/bman_v2.svg');
+	 var playerMaterial = new THREE.SpriteMaterial({ map: playerTexture, useScreenCoordinates: true  });
+	 var sprite = new THREE.Sprite(playerMaterial);
+	 sprite.scale.set(51, 60.7, 1); // imageWidth, imageHeight
+	 sprite.position.set(0, 50, 0);
+	 scene.add(sprite);
+	 */
+	bmanTexture = new THREE.ImageUtils.loadTexture("textures/bman1.jpg");
+	bmanTextureBump = new THREE.ImageUtils.loadTexture("textures/bman1_bump.jpg");
+	var materialBlue = Physijs.createMaterial(new THREE.MeshPhongMaterial({ reflectivity: 0.5, map: bmanTexture, bumpMap: (options.bumpmapping)?bmanTextureBump:false,/*color: 0x0000ff,*/ shininess: 10.0, bumpScale  :  0.45 }), .0, .0);
 	var materialRed = Physijs.createMaterial(new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 100.0 }), .0, .0);
 	playerObj1 = spawnPlayer(rows * -25 + 25, 25, columns * -25 + 25, materialBlue, 'Player1');
 	playerObj1.controls = {
@@ -145,7 +219,7 @@ function init() {
 	//////////////////////////////////////
 	// LIGHT AND SHADOWS                //
 	//////////////////////////////////////
-	light = new THREE.SpotLight(0xffeeee, 1);
+	light = new THREE.SpotLight(0xffeeee, 1.5);
 	light.position = {x:0, y: 800, z:0};
 	// shadow camera
 	//light.shadowCameraVisible = true;
@@ -177,14 +251,6 @@ function init() {
 	container.appendChild( stats.domElement );
 	window.addEventListener('resize', onWindowResize, false);
 
-	// temp TODO
-	//playerObj1.applyCentralImpulse(new THREE.Vector3(1000, 0, 0));
-	//playerObj1.applyCentralForce(new THREE.Vector3(1000, 0, 0));
-	var a = new THREE.Vector3( 1, 0, 0 );
-	var b = new THREE.Vector3( 0, 1, 0 );
-
-	var c = new THREE.Vector3();
-	console.log(a.add( b ));
 }
 function onWindowResize() {
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -199,14 +265,6 @@ function animate() {
 	render();
 	update();
 }
-function gameStep() {
-	keyboard.update();
-	handlePlayerMovement();
-	scene.simulate(); // run physics
-
-	// when moving, process the game logic at a target 60 FPS
-	setTimeout(gameStep, 1000/60/5);
-}
 function render() {
 	var seconds = Date.now() / 1000;
 	var piPerSeconds = seconds * Math.PI;
@@ -219,7 +277,11 @@ function render() {
 function update() {
 	handleNotSolidBombs();
 	handlePowerUps();
+	TWEEN.update();
 	controls.update();
+	keyboard.update();
+	handlePlayerMovement();
+	scene.simulate(); // run physics
 }
 
 
@@ -235,7 +297,7 @@ function handleNotSolidBombs() {
 		distanceP2 = getDistance(playerObj2, bomb);
 		if (distanceP1 >= 40 && distanceP2 >= 40) {
 			material = Physijs.createMaterial(new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.5 }), 0, 0);
-			bomb.box = new Physijs.BoxMesh(new THREE.CubeGeometry(50, 20, 50), material, 0);
+			bomb.box = new Physijs.BoxMesh(new THREE.BoxGeometry(50, wallHeight, 50), material, 0);
 			bomb.box.position = bomb.position;
 			scene.add(bomb.box);
 			return false;
@@ -247,38 +309,28 @@ function getDistance(obj1, obj2){
 	return Math.floor(Math.sqrt(Math.pow(obj2.position.x - obj1.position.x, 2) + Math.pow(obj2.position.y - obj1.position.y, 2) + Math.pow(obj2.position.z - obj1.position.z, 2)));
 }
 function handlePowerUps() {
-	powerUps = $.grep(powerUps, function (value, index) {
-		// PowerUp Player 1
-		p1 = playerObj1.position.x;
-		p2 = playerObj1.position.y;
-		p3 = playerObj1.position.z;
-		q1 = value.position.x;
-		q2 = value.position.y;
-		q3 = value.position.z;
-		distance = Math.floor(Math.sqrt(Math.pow(q1 - p1, 2) + Math.pow(q2 - p2, 2) + Math.pow(q3 - p3, 2)));
-		if (distance <= 40) {
-			if (value.type == "range")
-				playerObj1.bombRange = playerObj1.bombRange + 2;
-			console.log('player 1 range: ' + playerObj1.bombRange);
-			scene.remove(value);
-			return false;
-		}
-		// PowerUp Player 2
-		p1 = playerObj2.position.x;
-		p2 = playerObj2.position.y;
-		p3 = playerObj2.position.z;
-		q1 = value.position.x;
-		q2 = value.position.y;
-		q3 = value.position.z;
-		distance = Math.floor(Math.sqrt(Math.pow(q1 - p1, 2) + Math.pow(q2 - p2, 2) + Math.pow(q3 - p3, 2)));
-		if (distance <= 40) {
-			if (value.type == "range")
-				playerObj2.bombRange = playerObj2.bombRange + 2;
-			console.log('palyer 2 range: ' + playerObj2.bombRange);
-			scene.remove(value);
-			return false;
-		}
-		return true;
+	//activePowerUps = $.grep(activePowerUps, function (value, index) {
+	$.each(activePowerUps, function(key, powerUp){
+		$.each(players, function(key, player){
+			// PowerUp Player 1
+			p1 = player.position.x;
+			p2 = player.position.y;
+			p3 = player.position.z;
+			q1 = powerUp.position.x;
+			q2 = powerUp.position.y;
+			q3 = powerUp.position.z;
+			distance = Math.floor(Math.sqrt(Math.pow(q1 - p1, 2) + Math.pow(q2 - p2, 2) + Math.pow(q3 - p3, 2)));
+			if (distance <= 40) {
+				// apply power up
+				powerUp.effect(player);
+				// remove it from the scene
+				scene.remove(powerUp);
+				// remove it from active power ups
+				activePowerUps = $.grep(activePowerUps, function(value) {
+					return value != powerUp;
+				});
+			}
+		});
 	});
 }
 function handlePlayerMovement() {
@@ -287,35 +339,34 @@ function handlePlayerMovement() {
 		con = player.controls;
 		if (player.isActive) {
 			player.setAngularFactor(new THREE.Vector3(0,0,0));
-			player.setLinearVelocity(new THREE.Vector3(0,0,0));
+			//player.setLinearVelocity(new THREE.Vector3(0,0,0));
 			player.setLinearFactor(new THREE.Vector3(1,0,1));
-			player.position.y = 25;
-			// Player 1
-			s = player.speed; // speed for single direction
-			s2 = Math.sqrt(player.speed * player.speed / 2); // speed for diagonal direction
-			// diagonal
-			//player.applyCentralImpulse(new THREE.Vector3(1000, 0, 0));
-			if (keyboard.pressed(con.left) && keyboard.pressed(con.up))
-				player.applyCentralImpulse(new THREE.Vector3(-s2, 0, -s2));
-			else if (keyboard.pressed(con.left) && keyboard.pressed(con.down))
-				player.applyCentralImpulse(new THREE.Vector3(-s2, 0, s2));
-			else if (keyboard.pressed(con.right) && keyboard.pressed(con.up))
-				player.applyCentralImpulse(new THREE.Vector3(s2, 0, -s2));
-			else if (keyboard.pressed(con.right) && keyboard.pressed(con.down))
-				player.applyCentralImpulse(new THREE.Vector3(s2, 0, s2));
-			else {
-				// up, down, left, right
-				if (keyboard.pressed(con.left))
-					player.applyCentralImpulse(new THREE.Vector3(-s, 0, 0));
-				if (keyboard.pressed(con.right))
-					player.applyCentralImpulse(new THREE.Vector3(s, 0, 0));
-				if (keyboard.pressed(con.up))
-					player.applyCentralImpulse(new THREE.Vector3(0, 0, -s));
-				if (keyboard.pressed(con.down))
-					player.applyCentralImpulse(new THREE.Vector3(0, 0, s));
+			//player.position.y = 25;
+
+			vectorsCombined = new THREE.Vector3(0, 0, 0);
+
+			// up, down, left, right
+			if (keyboard.pressed(con.left))
+				vectorsCombined.add(new THREE.Vector3(-1, 0, 0));
+			if (keyboard.pressed(con.right))
+				vectorsCombined.add(new THREE.Vector3(1, 0, 0));
+			if (keyboard.pressed(con.up))
+				vectorsCombined.add(new THREE.Vector3(0, 0, -1));
+			if (keyboard.pressed(con.down))
+				vectorsCombined.add(new THREE.Vector3(0, 0, 1));
+
+			//console.log(player.speed);
+			//player.applyCentralImpulse(vectorsCombined.setLength(player.speed));
+			movement = vectorsCombined.setLength(player.speed);
+			if( movement.x != player.getLinearVelocity().x ||
+				movement.z != player.getLinearVelocity().z){
+				player.setLinearVelocity(movement);
+				//player.setLinearVelocity(new THREE.Vector3(0,0,0));
+				//player.applyCentralForce(movement);
+				console.log('change direction', player.getLinearVelocity());
 			}
 
-			if (keyboard.down("shift")) {
+			if (keyboard.down(con.bomb)) {
 				spawnBomb(player);
 			}
 		}
@@ -324,32 +375,34 @@ function handlePlayerMovement() {
 
 function spawnPlayer(x, y, z, material, name) {
 	if (name == null || name == '') name = 'Player';
-	playerObj = new Physijs.SphereMesh(new THREE.SphereGeometry(radius, segments, rings), material, 1);
-	playerObj.position.set(x, y, z);
-	playerObj.castShadow = true;
-	playerObj.playerName = name;
-	playerObj.isActive = true;
-	playerObj.bombRange = 5;
-	playerObj.bombLimit = 1;
-	playerObj.activeBombs = 0;
-	playerObj.speed = 200;
-	playerObj.setLinearFactor(THREE.Vector3(0, 0, 0));
-	playerObj.setCcdMotionThreshold(100); // Enable CCD if the object moves more than 1 meter in one simulation frame
-	playerObj.setCcdSweptSphereRadius(1.2); // Set the radius of the embedded sphere such that it is smaller than the object
-	objects.push(playerObj);
-	scene.add(playerObj);
-	return playerObj;
+	player = new Physijs.SphereMesh(new THREE.SphereGeometry(radius, segments, rings), material, 1);
+	player.position.set(x, y, z);
+	player.castShadow = true;
+	player.playerName = name;
+	player.isActive = true;
+	player.bombRange = 5;
+	player.bombLimit = 1;
+	player.activeBombs = 0;
+	player.speed = 200;
+	player.setLinearFactor(THREE.Vector3(0, 0, 0));
+	player.setCcdMotionThreshold(100); // Enable CCD if the object moves more than 1 meter in one simulation frame
+	player.setCcdSweptSphereRadius(1.2); // Set the radius of the embedded sphere such that it is smaller than the object
+	player.rotation.y = -90*(Math.PI/180);
+	player.rotation.z = 75*(Math.PI/180);
+	objects.push(player);
+	scene.add(player);
+	return player;
 }
 
 function spawnBomb(playerObj) {
 	radius = 20;
 	var materialBlack = Physijs.createMaterial(new THREE.MeshPhongMaterial({ color: 0x090909 }), .9, .0);
 	var bomb = new THREE.Mesh(new THREE.SphereGeometry(radius, segments, rings), materialBlack, 100);
-	bomb.owner = playerObj;
+	bomb.owner = player;
 	bomb.isBomb = true;
-	bomb.position.x = Math.round(playerObj.position.x / 50) * 50;
+	bomb.position.x = Math.round(player.position.x / 50) * 50;
 	bomb.position.y = 20;
-	bomb.position.z = Math.round(playerObj.position.z / 50) * 50;
+	bomb.position.z = Math.round(player.position.z / 50) * 50;
 	bomb.castShadow = true;
 	// condition for not placing 2 bombs in the same spot
 	addBomb = true;
@@ -358,19 +411,19 @@ function spawnBomb(playerObj) {
 			addBomb = false;
 	});
 	// check if bombLimit is exceeded
-	if (playerObj.activeBombs >= playerObj.bombLimit) {
+	if (player.activeBombs >= player.bombLimit) {
 		addBomb = false;
 	}
 	if (addBomb) {
 		bombs.push(bomb);
 		bombIndex = jQuery.inArray(bomb, bombs);
 		bomb.bombIndex = bombIndex;
-		bomb.owner = playerObj;
+		bomb.owner = player;
 		scene.add(bomb);
 		startBomb(bombIndex);
 		// make solid after player left object
 		notSolidBombs.push(bomb);
-		playerObj.activeBombs++;
+		player.activeBombs++;
 	}
 }
 function startBomb(bombIndex) {
@@ -412,7 +465,6 @@ function explosionRayCast(x, y, z, bomb) {
 	var raycaster = new THREE.Raycaster();
 	raycaster.ray.direction.set(x, y, z);
 	raycaster.ray.origin.set(bomb.position.x, 15, bomb.position.z);
-	var geometry = new THREE.Geometry();
 	var intersections = raycaster.intersectObjects(objects);
 	if (intersections.length > 0) {
 		var geometry = new THREE.Geometry();
@@ -427,7 +479,7 @@ function explosionRayCast(x, y, z, bomb) {
 			}
 			if (!intersections[0].object.solid) {
 				if (Math.random() > 0.5)
-					powerUps.push(spawnPowerUp(intersections[0].object.position.x, intersections[0].object.position.y, intersections[0].object.position.z));
+					activePowerUps.push(spawnPowerUp(intersections[0].object.position.x, intersections[0].object.position.y, intersections[0].object.position.z));
 				scene.remove(intersections[0].object);
 				intersections[0].object.isActive = false; // TODO only for Players
 				if (intersections[0].object == playerObj1) console.log('Player 2 won!');
@@ -490,14 +542,19 @@ function explosionRayCast(x, y, z, bomb) {
 	}
 }
 
-function spawnBox(texture, x, y, z, solid) {
+function spawnBox(texture, x, y, z, solid, bumpmap) {
 	var material = Physijs.createMaterial(
-		new THREE.MeshLambertMaterial({ map: texture }),
+		new THREE.MeshPhongMaterial({
+			shininess  :  20,
+			bumpMap    :  (options.bumpmapping)?bumpmap:false,
+			bumpScale  :  0.55,
+			map: texture
+		}),
 		.0, // medium friction
 		.0 // low restitution
 	);
 	var box = new Physijs.BoxMesh(
-		new THREE.CubeGeometry(50, 30, 50),
+		new THREE.BoxGeometry(50, wallHeight, 50),
 		material,
 		0 // mass: 0 = infinite
 	);
@@ -513,17 +570,23 @@ function spawnBox(texture, x, y, z, solid) {
 }
 
 function spawnPowerUp(x, y, z) {
-	// TODO more power up types (array) with different chances and effects
-	var material = new THREE.MeshLambertMaterial({ color: 0xFFFF00 });
+	pot = [];
+	$.each(powerUpTypes, function(key, powerup){
+		for(i=0;i<powerup.chance;i++)
+			pot.push(powerup);
+	});
+	randomId = Math.floor((Math.random() * pot.length));
+
 	var box = new THREE.Mesh(
-		new THREE.CubeGeometry(50, 50, 50),
-		material
+		new THREE.BoxGeometry(50, wallHeight, 50),
+		pot[randomId].material
 	);
+
+	box.type = pot[randomId].name;
+	box.effect = pot[randomId].effect;
+
 	box.position.set(x, y, z);
 	box.castShadow = true;
-	box.type = "range";
-	//box.addEventListener( 'collision', handleCollision );
-	//box.addEventListener( 'ready', spawnBox );
 	scene.add(box);
 	objects.push();
 	return box;
